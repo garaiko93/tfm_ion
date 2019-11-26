@@ -3,7 +3,6 @@ import pandas as pd
 import xml.etree.ElementTree as ET
 import pickle
 import os
-import math
 
 def extract_activity(activity,from_to):
     act_list = activity.attrib
@@ -94,8 +93,8 @@ def population_parser(pop_file,out_path):
             population_plans[person_id,n_trip] = plans_dict
 
     # EXPORT DICT on .pkl and .csv
-    # export_dict(population_attributes,'population_attributes',out_path)
-    # export_dict(population_plans, 'population_plans',out_path)
+    export_dict(population_attributes,'population_attributes',out_path)
+    export_dict(population_plans, 'population_plans',out_path)
 
     print(str('Population_attributes contains attributes of ')+str(len(population_attributes)) + str(' persons.'))
     print(str('Population_plans contains information of ')+str(len(population_plans)) + str(' trips.'))

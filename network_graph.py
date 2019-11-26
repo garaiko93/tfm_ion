@@ -10,10 +10,11 @@ import os
 from shutil import copyfile
 
 # Identify the largest component and the "isolated" nodes
-def check_iso_graph(G,out_path):
-    print('Initial graph has: ' + str(
+def check_iso_graph(G,out_path,filename):
+    print('Original ' + str(filename) + ' has: ' + str(
         len([len(c) for c in sorted(nx.strongly_connected_components(G), key=len, reverse=True)])) + ' island with '
-          + str(G.number_of_nodes()) + ' nodes and ' + str(G.number_of_edges()) + ' edges.')
+          + str(G.number_of_nodes()) + '/' + str(G.number_of_edges()) + ' (Nnodes/Nedges)')
+
     components = list(nx.strongly_connected_components(G))  # list because it returns a generator
     components.sort(key=len, reverse=True)
     longest_networks = []
@@ -29,32 +30,50 @@ def check_iso_graph(G,out_path):
         # remove isolated nodes from G
         G.remove_nodes_from(isolated)
         # export final graph only containing largest island from the network to file
-        nx.write_gpickle(G, str(out_path) + "\ch_network_largest_graph_bytime.gpickle")
+        nx.write_gpickle(G, str(out_path) + "/" + str(filename) + "_largest.gpickle")
+
+        print('N isolated nodes: ' + str(num_isolated))
+        print('10 largest networks (nodes): ' + str(longest_networks))
+
+        print('Resulting ' + str(filename) + ' has: ' + str(
+            len([len(c) for c in sorted(nx.strongly_connected_components(G), key=len, reverse=True)])) + ' island with '
+              + str(G.number_of_nodes()) + '/' + str(G.number_of_edges()) + ' (Nnodes/Nedges)')
     else:
         largest = components[0]
-        num_isolated = 0
         isolated = []
-        longest_networks = len(components[0])
-        copyfile(str(out_path) + "\ch_network_graph_bytime.gpickle",
-                 str(out_path) + "\ch_network_largest_graph_bytime.gpickle")
-    print('N isolated nodes: ' + str(num_isolated))
-    print('10 largest networks (nodes): ' + str(longest_networks))
-    print('Final graph has: ' + str(
-        len([len(c) for c in sorted(nx.strongly_connected_components(G), key=len, reverse=True)])) + ' island with '
-          + str(G.number_of_nodes()) + ' nodes and ' + str(G.number_of_edges()) + ' edges.')
+        copyfile(str(out_path) + "/" + str(filename) + ".gpickle",
+                 str(out_path) + "/" + str(filename) + "_largest.gpickle")
+
     return G,isolated, largest
 
 
-def create_graph(raw_file, out_path):
+def create_graph(G,edges_list,out_path,filename,nodes_dict):
+    # introduce every way as edge with attributes of time and new_id
+    for start, end, time, way_id, modes in edges_list:
+        G.add_edge(start, end, time=time, way_id=way_id, modes=modes)
+
+    # add attributes of coordinates to each node
+    for node in list(G.nodes):
+        G.nodes[node]['x'] = nodes_dict[node][0]
+        G.nodes[node]['y'] = nodes_dict[node][1]
+    # export graph of original network to file (without excluding any edge or island)
+    nx.write_gpickle(G, str(out_path) + "/" + str(filename) + ".gpickle")
+    G_isolated = copy.deepcopy(G)
+
+    [G, isolated, largest] = check_iso_graph(G,out_path,filename)
+
+    print('Input edges: ' + str(len(edges_list)))
+    print('------------------------------------------------------------------------')
+    return G, G_isolated, isolated, largest
+
+def parse_network(raw_file, out_path):
     if not os.path.exists(str(out_path)):
         os.makedirs(str(out_path))
         print('Directory created')
     else:
         print('Directory exists')
+    print('------------------------------------------------------------------------')
 
-    lines_nodes = 881661
-    lines_ways = 7181593
-    lines_europe = 8063269
     # #SPLIT OSM FILE IN FILES FOR: NODES, WAYS
     node_check = 0
     way_check = 0
@@ -63,6 +82,9 @@ def create_graph(raw_file, out_path):
     lines_nodes = 0
     lines_ways = 0
     lines_europe = 0
+    # lines_nodes = 881661
+    # lines_ways = 7181593
+    # lines_europe = 8063269
 
     # by reading the selected file line by line, for each xml element type this code splits the 3 of them in 3 different files for: NODES, WAYS and RELATIONS elements
     with gzip.open(raw_file) as f:
@@ -91,10 +113,11 @@ def create_graph(raw_file, out_path):
     # SCREEN PRINT
     # print(nodes_n)
     # print(ways_n)
-    print(lines_nodes)
-    print(lines_ways)
-    print(lines_europe)
+    print('Lines of nodes: ' + str(lines_nodes))
+    print('Lines of ways: ' + str(lines_ways))
+    print('Lines in file: '+ str(lines_europe))
     print('Raw file splitted correctly in out_path')
+    print('------------------------------------------------------------------------')
     # -----------------------------------------------------------------------------
     # NODES
     # -----------------------------------------------------------------------------
@@ -116,11 +139,11 @@ def create_graph(raw_file, out_path):
     # EXPORT nodes_ch (dictionary) TO FILE
     with open(str(out_path) + '\ch_nodes_dict2056' + '.pkl', 'wb') as f:
         pickle.dump(nodes_dict, f, pickle.HIGHEST_PROTOCOL)
-    # with open(out_path / 'ch_nodes_dict2056.pkl', 'wb') as f:
-    #     pickle.dump(nodes_dict, f, pickle.HIGHEST_PROTOCOL)
     print('Nnodes in nodes_dict: ' + str(len(nodes_dict)))
 
+    # -----------------------------------------------------------------------------
     # WAYS
+    # -----------------------------------------------------------------------------
     way_check = 0
     ways_count = 0
     ways_dict = {}
@@ -186,50 +209,98 @@ def create_graph(raw_file, out_path):
     ch_ways_df = ch_ways_df[cols]
     ch_ways_df.to_csv(str(out_path) + "\ch_ways.csv", sep=",", index=None)
 
-    print('Nways in ways_dict: ' + str(len(ways_dict)))
-    print(ways_count)
-    print('Nways in ch_ways_df: ' + str(len(ch_ways_df)))
+    print('Number of ways in XML file: ' + str(ways_count))
+    print('Nways in ways_dict and ch_ways_df (filter of "car" in modes applied): ' + str(len(ways_dict)))
+    print('------------------------------------------------------------------------')
 
     # -------------------------------------------------------------------
-    # Create a graph from network
+    # CLEANING DUPLICATED DATA
     # -------------------------------------------------------------------
+    train_o = ch_ways_df[['start_node_id', 'end_node_id']]
+    train_d = pd.DataFrame.copy(train_o, deep=True)
+    train_d2 = train_o.drop_duplicates().reset_index(drop=True)
+    train_d.columns = ['end_node_id', 'start_node_id']
+    # print(len(train_o))
+    # print(len(train_d2))
+
+    # MATCHING only in START AND END NODES
+    # on this sample: 3969 rows have duplicates taking the start_node_id and end_node_id, this means there is different data for the same defined way in this cases
+    # out of 3969: 3921 have 1 duplicate (first+1) and 48 have 2 duplicates (first+2)
+    dup_ways_bynode = ch_ways_df[ch_ways_df.duplicated(['start_node_id', 'end_node_id'], keep=False)]
+    # dup_ways_bynode= dup_ways_bynode.drop(['way_id'],axis = 1).drop_duplicates(keep=False) do not activate this
+    dup_ways_bynode = dup_ways_bynode.sort_values(by=['start_node_id', 'end_node_id'])
+    dup_ways_bynode = pd.merge(dup_ways_bynode, ch_ways_df, how='inner')
+    dup_ways_bynode.to_csv(str(out_path) + "\dup_ways_bynode.csv", sep=",", index=None)
+    print('There are ' + str(len(ch_ways_df[ch_ways_df.duplicated(['start_node_id','end_node_id'],keep='first')])) +
+          ' links which have at least one duplicate.')
+
+    # MATCHING IN DATA WITHOUT ID
+    # on this sample: 450 rows have duplicates without counting the way_id(which is unique for all)
+    # out of 450: 449 have 1 duplicate (first+1) and 1 has 2 duplicates (first+2)
+    # no_id = ch_ways_df.drop(['way_id'], axis=1)
+    # dup_id = no_id[no_id.duplicated(keep='first')].drop_duplicates(keep='first')
+    # index of all first duplicates is saved in 'no_id_idx' for later filter to main df
+    # no_id_idx = dup_id.index.values.tolist()
+    # print(len(dup_id))
+
+    # This selects the fastest way in cases where there are duplicates, for a later simpler graph
+    idx_list = []
+
+    j = -1
+    actual_i = 0
+    for i in range(0, len(dup_ways_bynode) - 1):
+        if i > actual_i + j:
+            actual_i = i
+            start_node_id = str(dup_ways_bynode.iloc[i]['start_node_id'])
+            end_node_id = str(dup_ways_bynode.iloc[i]['end_node_id'])
+
+            times = []
+            j = 0
+            start_n = str(dup_ways_bynode.iloc[i + j]['start_node_id'])
+            end_n = str(dup_ways_bynode.iloc[i + j]['end_node_id'])
+            #         print(start_node_id,end_node_id,'o')
+            while start_node_id == start_n and end_node_id == end_n:
+                #             print(start_n, end_n)
+                time = dup_ways_bynode.iloc[i + j]['time']
+                times.append(time)
+                j += 1
+                if i + j < len(dup_ways_bynode) - 1:
+                    start_n = str(dup_ways_bynode.iloc[i + j]['start_node_id'])
+                    end_n = str(dup_ways_bynode.iloc[i + j]['end_node_id'])
+                #                 print(start_n, end_n)
+                elif i + j == len(dup_ways_bynode) - 1:
+                    j -= 1
+                    time = dup_ways_bynode.iloc[i + j]['time']
+                    times.append(time)
+                    break
+            j -= 1
+            idx = times.index(min(times))
+            idx_list.append(i + idx)
+
+    # resulting dataframe after cleaning
+    selected_ways = dup_ways_bynode.iloc[idx_list]
+    unique_ways = ch_ways_df.drop_duplicates(['start_node_id', 'end_node_id'], keep=False)
+    clean_ways = pd.concat([selected_ways, unique_ways], sort=False).sort_values(by=['way_id'])
+    # print(len(selected_ways), len(dup_ways_bynode), len(unique_ways), len(ch_ways_df))
+    clean_ways.to_csv(str(out_path) + "\clean_ways.csv", sep=",", index=None)
+    print('Exported "clean_ways.csv" with fastest links in case of duplicates with ' + str(len(clean_ways)) + ' on it.')
+    print('------------------------------------------------------------------------')
+
+    # -------------------------------------------------------------------
+    # Create a graphs from network
+    # -------------------------------------------------------------------
+    # create MultiDiGraph to include all edges
     G = nx.MultiDiGraph()
-
-    # import the network created from the OSM file
-    # edges = pd.read_csv(str(out_path)+"\ch_ways.csv") [["start_node_id", "end_node_id", "time", "way_id","modes"]]
     edges = ch_ways_df[["start_node_id", "end_node_id", "time", "way_id", "modes"]]
     edges_list = edges.values.tolist()
+    [G, G_isolated, isolated, largest] = create_graph(G,edges_list,out_path,'ch_MultiDiGraph_bytime',nodes_dict)
 
-    # introduce every way as edge with attributes of time and new_id
-    for start, end, time, way_id, modes in edges_list:
-        G.add_edge(start, end, time=time, way_id=way_id, modes=modes)
-    start_Nn = G.number_of_nodes()
-    start_Ne = G.number_of_edges()
-
-    # add attributes of coordinates to each node
-    for node in list(G.nodes):
-        G.nodes[node]['x'] = nodes_dict[node][0]
-        G.nodes[node]['y'] = nodes_dict[node][1]
-    # export graph of original network to file (without excluding any edge or island)
-    nx.write_gpickle(G, str(out_path) + "\ch_network_graph_bytime.gpickle")
-    G_isolated = copy.deepcopy(G)
-    print('Original graph has: ' + str(
-        len([len(c) for c in sorted(nx.strongly_connected_components(G), key=len, reverse=True)])) + ' island with '
-          + str(G.number_of_nodes()) + '/' + str(G.number_of_edges()) + ' (Nnodes/Nedges)')
-
-    [G, isolated, largest] = check_iso_graph(G,out_path)
-
-    end_Nn = G.number_of_nodes()
-    end_Ne = G.number_of_edges()
-
-    print('Input edges: ' + str(len(edges_list)))
-    print('Start/End N_nodes: ' + str(start_Nn) + '/' + str(end_Nn))
-    print('Start/End N_edges: ' + str(start_Ne) + '/' + str(end_Ne))
-
-    print('Resulting graph has: ' + str(
-        len([len(c) for c in sorted(nx.strongly_connected_components(G), key=len, reverse=True)])) + ' island with '
-          + str(G.number_of_nodes()) + '/' + str(G.number_of_edges()) + ' (Nnodes/Nedges)')
-
+    # Also with 'clean_data' create a DiGraph for attributes comparison with fastest duplicated ways
+    G_simple = nx.DiGraph()
+    edges_s = clean_ways[["start_node_id", "end_node_id", "time", "way_id", "modes"]]
+    edges_list_s = edges_s.values.tolist()
+    [G_simple, G_isolated, isolated, largest] = create_graph(G_simple, edges_list_s, out_path,
+                                                             'ch_DiGraph_bytime', nodes_dict)
 
     # create shapefile with all nodes/edges excluded from the final graph (only for visual purpose)
     def sw_nodes(way_id):
@@ -249,16 +320,17 @@ def create_graph(raw_file, out_path):
         intersected_df['geometry'] = intersected_df.apply(lambda row: sw_nodes(row['way_id']), axis=1)
         intersected_gdf = gpd.GeoDataFrame(intersected_df)
         intersected_gdf.to_file(str(out_path) + "/" + str(file_name) + ".shp")
+        print('Shapefile exported as ' + str(file_name))
 
     # LARGEST ISLAND OF GRAPH
     edges = G.edges(list(largest))
-    create_shp(edges, 'ch_network_largest_graph_bytime')
-    print(len(list(edges)))
+    create_shp(edges, 'ch_MultiDiGraph_bytime_largest')
     # ISOLATED GRAPH
     if len(list(isolated)) > 0:
         iso_edges = G_isolated.edges(list(isolated))
         create_shp(iso_edges, 'isolated_graph')
         # export GRAPH to file
         nx.write_gpickle(G_isolated, str(out_path) + "\isolated_graph.gpickle")
-        print(len(list(iso_edges)))
-    print('Process finished correctly: graph created in out_path')
+
+    print('------------------------------------------------------------------------')
+    print('Process finished correctly: files created in out_path')
