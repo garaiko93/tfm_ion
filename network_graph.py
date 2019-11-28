@@ -41,6 +41,7 @@ def check_iso_graph(G,out_path,filename):
     else:
         largest = components[0]
         isolated = []
+        nx.write_gpickle(G, str(out_path) + "/" + str(filename) + ".gpickle")
         copyfile(str(out_path) + "/" + str(filename) + ".gpickle",
                  str(out_path) + "/" + str(filename) + "_largest.gpickle")
 
