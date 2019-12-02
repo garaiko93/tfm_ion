@@ -6,8 +6,7 @@ from network_graph import parse_network
 from graph_analysis import filter_graph
 from population_parser import population_parser
 
-from optparse import OptionParser
-
+# from optparse import OptionParser
 # parser = OptionParser()
 # parser.add_option("--study-areas", dest="study_areas", help="study areas")
 # parser.add_option("--network-graphs", dest="network_graphs", help="network_graphs")

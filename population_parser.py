@@ -14,7 +14,7 @@ def extract_activity(activity,from_to):
         ov_guteklasse = activity[0][0]
         act_dict['ov_guteklasse'] = ov_guteklasse.text
     except:
-        act_dict['ov_guteklasse'] = None
+        act_dict['ov_guteklasse'] = ''
     return act_dict
 
 def export_dict(dict,file_name,out_path):
