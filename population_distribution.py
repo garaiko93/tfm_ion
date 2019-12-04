@@ -11,6 +11,7 @@ from shapely.ops import transform
 import pandas as pd
 import folium
 import os
+from pyproj import Transformer
 
 
 def create_distrib(fac_df, grid_size):
@@ -41,10 +42,10 @@ def create_distrib(fac_df, grid_size):
     # y_axis = max_y - o_y
     y_axis = o_y - min_y
 
-
     x = math.ceil(x_axis/grid_size) #rounds up the number
     y = abs(math.ceil(y_axis/grid_size)) #rounds up the number
     m = np.zeros([y,x])
+    print(y*x)
 
     for index, row in area_fac.iterrows():
         x_coord = row['x'] - o_x
@@ -54,31 +55,24 @@ def create_distrib(fac_df, grid_size):
         m_y = math.floor(y_coord / grid_size)
 
         m[(m_y,m_x)] += row['n_persons']
-    return m, o_x, o_y
 
-
-def plot_distribution(m,grid_size,o_x,o_y):
     # create geodataframe wit each square from matrix m
     id = 0
     m_df = pd.DataFrame(data=None, columns=['id', 'geometry'])
     for i in range(0, len(m)):
         for j in range(0, len(m[0])):
-            poly_2056 = Polygon([((o_x + (grid_size * j)), (o_y - (grid_size * i))),
-                                 ((o_x + (grid_size * (j+1))), (o_y - (grid_size * i))),
-                                 ((o_x + (grid_size * (j+1))), (o_y - (grid_size * (i+1)))),
-                                 ((o_x + (grid_size * j)), (o_y - (grid_size * (i+1))))])
-            # poly_2056 = Polygon([((o_y - (grid_size * i)), (o_x + (grid_size * j))),
-            #                      ((o_y - (grid_size * i)), (o_x + (grid_size * (j+1)))),
-            #                      ((o_y - (grid_size * (i+1))), (o_x + (grid_size * (j+1)))),
-            #                      ((o_y - (grid_size * (i+1))), (o_x + (grid_size * j)))])
+            if m[i][j] == 0: continue
+            points_4326 = []
+            points = [((o_x + (grid_size * j)), (o_y - (grid_size * i))),
+                      ((o_x + (grid_size * (j+1))), (o_y - (grid_size * i))),
+                      ((o_x + (grid_size * (j+1))), (o_y - (grid_size * (i+1)))),
+                      ((o_x + (grid_size * j)), (o_y - (grid_size * (i+1))))]
+            # transform coordinates system from epsg 2056 to epsg 4326
+            transformer = Transformer.from_crs(2056, 4326)
+            for pt in transformer.itransform(points):
+                points_4326.append((pt[1],pt[0]))
+            poly_4326 = Polygon(points_4326)
 
-            project = partial(
-                pyproj.transform,
-                # pyproj.Proj('epsg:2056'),  # source coordinate system 'epsg:2056'
-                # pyproj.Proj('epsg:4326'))  # destination coordinate system
-                pyproj.Proj(init='epsg:2056'),  # source coordinate system 'epsg:2056'
-                pyproj.Proj(init='epsg:4326'))  # destination coordinate system
-            poly_4326 = transform(project, poly_2056)
             new_row = {'id': str(id),
                        'value': m[i][j],
                        'geometry': poly_4326
@@ -88,11 +82,22 @@ def plot_distribution(m,grid_size,o_x,o_y):
     m_gdf = gpd.GeoDataFrame(m_df)
     m_gdf.to_file(r"C:\Users\Ion\TFM\data\study_areas\zurich_small/output.json", driver="GeoJSON")
 
+    # create shp file with points in area
+    # point_list = []
+    # for index,row in area_fac.iterrows():
+    #     point = Point(row['x'], row['y'])
+    #     point_list.append(point)
+    # area_fac['geometry'] = point_list
+    #
+    # area_gdf = gpd.GeoDataFrame(area_fac)
+    # area_gdf.to_file(r"C:\Users\Ion\TFM\data\study_areas\zurich_small/home_points.shp")
+
     # Initialize the map:
     map2 = folium.Map(location=[47.376155, 8.531508], zoom_start=12)
     # Add the color for the chloropleth:
     folium.Choropleth(
         geo_data=r"C:\Users\Ion\TFM\data\study_areas\zurich_small/output.json",
+        # geo_data=m_gdf[['id', 'geometry']],
         name='choropleth',
         data=m_df,
         columns=['id', 'value'],
@@ -108,25 +113,15 @@ def plot_distribution(m,grid_size,o_x,o_y):
 
 area = "zurich_small"
 facility = "home"
-population_path = r"C:/Users/Ion/TFM/data/population_db"
+population_path = r"C:/Users/Ion/TFM/data/population_db/switzerland_1pct"
 shp_path = r"C:/Users/Ion/TFM/data/study_areas" + "/" + str(area)
 study_area_shp = gpd.read_file(str(shp_path) + "/" + area + ".shp").iloc[0]['geometry']
 fac_df = pd.read_csv(str(population_path) + "/loc_" + str(facility) + ".csv")
 
-grid_size = 7000
-[m,o_x, o_y] = create_distrib(fac_df, grid_size)
-plot_distribution(m,grid_size,o_x, o_y)
+grid_size = 1000
+create_distrib(fac_df, grid_size)
 
 
-# create shp file with points in area
-point_list = []
-for index,row in area_fac.iterrows():
-    point = Point(row['x'], row['y'])
-    point_list.append(point)
-area_fac['geometry'] = point_list
-
-area_gdf = gpd.GeoDataFrame(area_fac)
-area_gdf.to_file(r"C:\Users\Ion\TFM\data\study_areas\zurich_small/home_points.shp")
 
 # OTHER WAYS TO PLOT THE MAP IN THE BACKGROUND
 # # Create a dataset (fake)
