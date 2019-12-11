@@ -4,6 +4,7 @@ import xml.etree.ElementTree as ET
 import pickle
 import os
 import re
+import ast
 
 def extract_activity(activity,from_to):
     act_list = activity.attrib
@@ -18,18 +19,20 @@ def extract_activity(activity,from_to):
         act_dict['ov_guteklasse'] = ''
     return act_dict
 
-def export_dict(dict,file_name,out_path):
+def export_dict(dict,file_name,out_path, file_number):
     # EXPORT dicts TO FILEs
-    with open(str(out_path) + '/'+str(file_name) + '.pkl', 'wb') as f:
+    with open(str(out_path) + '/' + str(file_name) + '_' + str(file_number) + '.pkl', 'wb') as f:
         pickle.dump(dict, f, pickle.HIGHEST_PROTOCOL)
     df = pd.DataFrame.from_dict(dict, orient='index')
-    df.to_csv(str(out_path) + '/' + str(file_name) + '.csv', sep=",", index=True,
-              index_label=['person_id', 'trip', 'leg'])
+    # df.to_csv(str(out_path) + '/' + str(file_name) + '_' + str(file_number) + '.csv', sep=",", index=True,
+    #           index_label=['person_id', 'trip', 'leg'])
 
-    # if len(df.index[0]) == 3:
-    #     df.to_csv(str(out_path) + '/' + str(file_name) + '.csv', sep=",", index=True, index_label=['person_id','trip','leg'])
-    # else:
-    #     df.to_csv(str(out_path) + '/'+str(file_name)+'.csv', sep=",", index=True, index_label=['person_id'])
+    if len(df.index[0]) == 3:
+        df.to_csv(str(out_path) + '/' + str(file_name) + '_' + str(file_number) + '.csv', sep=",", index=True, index_label=['person_id','trip','leg'])
+    elif len(df.index[0]) == 2:
+        df.to_csv(str(out_path) + '/' + str(file_name) + '_' + str(file_number) + '.csv', sep=",", index=True, index_label=['person_id','trip'])
+    else:
+        df.to_csv(str(out_path) + '/' + str(file_name) + '_' + str(file_number) + '.csv', sep=",", index=True, index_label=['person_id'])
 
 # pop_file = r'C:\Users\Ion\TFM\data\scenarios\switzerland_1pm\switzerland_population.xml.gz'
 # out_path = r'C:\Users\Ion\TFM\data\population_db'
@@ -131,13 +134,10 @@ def population_parser_etree(pop_folder,out_folder,scenario):
 # -why attributes length = 7984 and unique id population_plans is 7533? this is people that stays at home
 
 
-
-# NODES
-# -----------------------------------------------------------------------------
 def population_parser_line(pop_folder,out_folder,scenario):
     # pop_folder=r'C:\Users\Ion\TFM\data\scenarios'
     # out_folder=r'C:\Users\Ion\TFM\data\population_db/test'
-    # scenario='switzerland_1pm'
+    # scenario='switzerland_10pct'
     # define path and file variables
     print(scenario)
     out_path = str(out_folder) + '/' + str(scenario)
@@ -154,6 +154,11 @@ def population_parser_line(pop_folder,out_folder,scenario):
     attribute_check = 0
     plan_check = 0
     activity_check = 0
+    person_count = 0
+    file_number = 0
+    attr_count = 0
+    plans_count = 0
+
     with gzip.open(pop_file) as f:
         #     reading line by line the 'nodes' file created at the beginning, data for each node fulfilling the conditions are stored for the output
         for line in f:
@@ -163,7 +168,7 @@ def population_parser_line(pop_folder,out_folder,scenario):
                     person_id = m.group(1).decode('utf-8')
                     attribute_check = 1
                     person_attr = {}
-                    print(person_id)
+                    # print(person_id)
             # extract attributes from person
             if attribute_check == 1:
                 if b"<attribute " in line:
@@ -173,7 +178,7 @@ def population_parser_line(pop_folder,out_folder,scenario):
                         value = m.group(3).decode('utf-8')
                         person_attr[name] = value
                 if b"</attributes>" in line:
-                    # population_attributes[person_id] = person_attr
+                    population_attributes[person_id] = person_attr
                     attribute_check = 0
             # extract plans from person
             if b"<plan " in line:
@@ -197,7 +202,7 @@ def population_parser_line(pop_folder,out_folder,scenario):
                 if (b"<attribute " in line) == True and activity_check == 1:
                     m = re.search(rb'name="(.+)" class="(.+)" >(.+)</attribute', line)
                     if m:
-                        name = m.group(1).decode('utf-8')
+                        # name = m.group(1).decode('utf-8')
                         value = m.group(3).decode('utf-8')
                 if (b"</activity>" in line) == True and activity_check == 1:
                     act_leg_list.append([type, 0, x, y, value, 'activity'])
@@ -207,7 +212,7 @@ def population_parser_line(pop_folder,out_folder,scenario):
                     if m:
                         mode = m.group(1).decode('utf-8')
                         dep_time = m.group(2).decode('utf-8')
-                        trav_time = m.group(3).decode('utf-8')
+                        # trav_time = m.group(3).decode('utf-8')
                 if b"<route " in line:
                     # m = re.search(rb'type="(.+)" start_link="(.+)" end_link="(.+)" trav_time="(.+)" '
                     #               rb'distance="([+-]?\d+(?:\.\d+)?)" >([+-]?\d+(?:\.\d+)?)</route', line)
@@ -236,7 +241,7 @@ def population_parser_line(pop_folder,out_folder,scenario):
                         home_dict['ov_guteklasse'] = act[4]
                         home_dict['stays_home'] = 'true'
                         home_dict['n_trips'] = 0
-                        # population_plans[person_id, 0, 0] = home_dict
+                        population_plans[person_id, 0, 0] = home_dict
                     else:
                         for i in range(0,len(act_leg_list)-1,2):
                             if act_leg_list[0][-1] == 'leg':
@@ -298,28 +303,51 @@ def population_parser_line(pop_folder,out_folder,scenario):
                             plans_dict = {**act_1_dict, **leg_dict, **act_2_dict}
                             plans_dict['stays_home'] = 'false'
                             plans_dict['n_trips'] = divmod(len(act_leg_list), 2)[0]
-                            # population_plans[person_id, n_trip, n_leg] = plans_dict
+                            population_plans[person_id, n_trip, n_leg] = plans_dict
+                    # this part of the code splits the output in different files, to avoid memory problems
+                    person_count +=1
+            if (b"</population>" in line) == True or person_count == 85000:
+                # EXPORT DICT on .pkl and .csv
+                export_dict(population_attributes, 'population_attributes', out_path, file_number)
+                export_dict(population_plans, 'population_plans', out_path, file_number)
+                attr_count += len(population_attributes)
+                plans_count += len(population_plans)
+                person_count = 0
+                file_number += 1
+                population_attributes = {}
+                population_plans = {}
 
-    # EXPORT DICT on .pkl and .csv
-    export_dict(population_attributes, 'population_attributes', out_path)
-    export_dict(population_plans, 'population_plans', out_path)
-
-    print(str('Population_attributes contains attributes of ')+str(len(population_attributes)) + str(' persons.'))
-    print(str('Population_plans contains information of ')+str(len(population_plans)) + str(' trips.'))
+    print(str('Population_attributes contains attributes of ') + str(attr_count) + str(' persons.'))
+    print(str('Population_plans contains information of ') + str(plans_count) + str(' trips.'))
 
     # create df with location of all facilities with groupby.list person_id
-    df = pd.DataFrame.from_dict(population_plans, orient='index')
-    for loc in df.from_type.unique():
-        loc_df = df[df['from_type'] == loc][['from_x', 'from_y']]
-        loc_df.index.names = ['person_id', 'trip', 'leg']
-        loc_df = loc_df.reset_index()
-        loc_df = loc_df[['person_id', 'from_x', 'from_y']].drop_duplicates()
-        loc_df = loc_df.groupby(['from_x', 'from_y'])['person_id'].apply(list)
-        loc_df.index.names = ['x', 'y']
-        loc_df = loc_df.reset_index()
-        for i in loc_df.index:
-            loc_df.at[i, 'n_persons'] = (len(loc_df.at[i, 'person_id']))
-        loc_df.to_csv(str(out_path) + '\loc_' + str(loc) + '.csv', sep=",", index=False)
-        print(loc, len(loc_df))
+    for i in range(0, file_number):
+        print('file ' + str(i))
+        file = open(str(out_path) + '/' + 'population_plans_' + str(i) + '.pkl', 'rb')
+        population_plans = pickle.load(file)
+        df = pd.DataFrame.from_dict(population_plans, orient='index')
+        for loc in df.from_type.unique():
+            loc_file = str(out_path) + '\loc_' + str(loc) + '.csv'
+            rec_file = str(out_path) + '/rec_' + str(loc) + '.csv'
+            loc_df = df[df['from_type'] == loc][['from_x', 'from_y']]
+            loc_df.index.names = ['person_id', 'trip', 'leg']
+            loc_df = loc_df.reset_index()
 
+            if os.path.isfile(rec_file):
+                rec_df = pd.read_csv(rec_file)
+                concat_rec_df = pd.concat([rec_df, loc_df])
+                concat_rec_df.to_csv(rec_file, sep=",", index=False)
+            else:
+                loc_df.to_csv(rec_file, sep=",", index=False)
 
+            if i == (file_number - 1):
+                fullrec_df = pd.read_csv(rec_file)
+                fullrec_df = fullrec_df[['person_id', 'from_x', 'from_y']].drop_duplicates()
+                fullrec_df = fullrec_df.groupby(['from_x', 'from_y'])['person_id'].apply(list)
+                fullrec_df.index.names = ['x', 'y']
+                fullrec_df = fullrec_df.reset_index()
+                for j in fullrec_df.index:
+                    fullrec_df.at[j, 'n_persons'] = len(fullrec_df.at[j, 'person_id'])
+                fullrec_df.to_csv(loc_file, sep=",", index=False)
+                os.remove(rec_file)
+                print(loc, len(fullrec_df))

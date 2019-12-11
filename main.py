@@ -4,7 +4,7 @@ import datetime
 print(datetime.datetime.now().time())
 from network_graph import parse_network
 from graph_analysis import filter_graph
-from population_parser import population_parser2
+from population_parser import population_parser_line
 
 # from optparse import OptionParser
 # parser = OptionParser()
@@ -49,14 +49,14 @@ from population_parser import population_parser2
 #                   2. Output directory to save new files
 #                   3. Scenario (i.e. 'switzerland_1pm', 'switzerland_1pct', 'switzerland_10pct'
 # '''
-# pop_list = ['switzerland_1pm', 'switzerland_1pct', 'switzerland_10pct']
-# for pop in pop_list:
+pop_list = ['switzerland_1pm', 'switzerland_1pct', 'switzerland_10pct']
+for pop in pop_list:
 #     population_parser_etree(r'C:\Users\Ion\TFM\data\scenarios',
 #                       r'C:\Users\Ion\TFM\data\population_db',
 #                       pop)
-population_parser_line(r'C:\Users\Ion\TFM\data\scenarios',
-                  r'C:\Users\Ion\TFM\data\population_db',
-                  'switzerland_10pct')
+    population_parser_line(r'C:\Users\Ion\TFM\data\scenarios',
+                           r'C:\Users\Ion\TFM\data\population_db/test',
+                           pop)
 
 # -------------------------------------------------------------------------------------------------------------
 # CREATE AND ANALYSE EVERY STUDY AREA

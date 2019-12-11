@@ -1,13 +1,7 @@
-import pandas as pd
 import numpy as np
 import geopandas as gpd
 from shapely.geometry import Point, Polygon
 import math
-import seaborn as sns
-import contextily as ctx
-from functools import partial
-import pyproj
-from shapely.ops import transform
 import pandas as pd
 import folium
 import os
@@ -31,15 +25,13 @@ def create_distrib(fac_df, grid_size):
     max_x = area_fac['x'].max()
     max_y = area_fac['y'].max()
 
-    # define origin of coordinates
+    # define origin of coordinates top-corner
     o_x = min_x - 50
-    # o_y = min_y - 50
     o_y = max_y + 50
     o = Point(o_x, o_y)
 
     # dimensions of grid
     x_axis = max_x - o_x
-    # y_axis = max_y - o_y
     y_axis = o_y - min_y
 
     x = math.ceil(x_axis/grid_size) #rounds up the number
@@ -51,7 +43,7 @@ def create_distrib(fac_df, grid_size):
         x_coord = row['x'] - o_x
         m_x = math.floor(x_coord / grid_size)
 
-        y_coord = o_y - row['y'] #- o_y
+        y_coord = o_y - row['y']
         m_y = math.floor(y_coord / grid_size)
 
         m[(m_y,m_x)] += row['n_persons']
@@ -108,21 +100,22 @@ def create_distrib(fac_df, grid_size):
         legend_name='zurich population distribution'
     ).add_to(map2)
     # Save to html
-    map2.save(os.path.join(r"C:\Users\Ion\TFM\data\study_areas\zurich_small/", 'GeoJSON_and_choropleth_0.html'))
-    return m_df
+    map_name = str(area) + '_' + str(pct) + '_' + str(grid_size) + 'gs.html'
+    map2.save(os.path.join(r"C:\Users\Ion\TFM\data\study_areas\zurich_small/", map_name))
 
-area = "zurich_small"
+area = "zurich_large"
 facility = "home"
-population_path = r"C:/Users/Ion/TFM/data/population_db/switzerland_1pct"
+pct = "10pct"
+population_path = r"C:/Users/Ion/TFM/data/population_db/test/switzerland_" + str(pct)
 shp_path = r"C:/Users/Ion/TFM/data/study_areas" + "/" + str(area)
 study_area_shp = gpd.read_file(str(shp_path) + "/" + area + ".shp").iloc[0]['geometry']
 fac_df = pd.read_csv(str(population_path) + "/loc_" + str(facility) + ".csv")
 
-grid_size = 1000
+grid_size = 500
 create_distrib(fac_df, grid_size)
 
-
-
+# code finishes here
+# ------------------------------------------
 # OTHER WAYS TO PLOT THE MAP IN THE BACKGROUND
 # # Create a dataset (fake)
 #     df = pd.DataFrame(m)
