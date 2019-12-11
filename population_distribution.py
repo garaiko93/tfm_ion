@@ -6,9 +6,10 @@ import pandas as pd
 import folium
 import os
 from pyproj import Transformer
+from shapely.ops import cascaded_union
 
 
-def create_distrib(fac_df, grid_size):
+def create_distrib(study_area_shp, fac_df, grid_size):
     drop_rows = []
     for index, row in fac_df.iterrows():
         point = Point(row['x'], row['y'])
@@ -36,7 +37,7 @@ def create_distrib(fac_df, grid_size):
 
     x = math.ceil(x_axis/grid_size) #rounds up the number
     y = abs(math.ceil(y_axis/grid_size)) #rounds up the number
-    m = np.zeros([y,x])
+    m = [np.zeros([y,x]),np.zeros([y,x])]
     print(y*x)
 
     for index, row in area_fac.iterrows():
@@ -46,31 +47,46 @@ def create_distrib(fac_df, grid_size):
         y_coord = o_y - row['y']
         m_y = math.floor(y_coord / grid_size)
 
-        m[(m_y,m_x)] += row['n_persons']
+        m[0][(m_y,m_x)] += row['n_persons']
 
-    # create geodataframe wit each square from matrix m
+    # create geodataframe with each square from matrix m
     id = 0
     m_df = pd.DataFrame(data=None, columns=['id', 'geometry'])
-    for i in range(0, len(m)):
-        for j in range(0, len(m[0])):
-            if m[i][j] == 0: continue
+    for i in range(0, len(m[0])):
+        for j in range(0, len(m[0][0])):
             points_4326 = []
             points = [((o_x + (grid_size * j)), (o_y - (grid_size * i))),
                       ((o_x + (grid_size * (j+1))), (o_y - (grid_size * i))),
                       ((o_x + (grid_size * (j+1))), (o_y - (grid_size * (i+1)))),
                       ((o_x + (grid_size * j)), (o_y - (grid_size * (i+1))))]
+            polygon = Polygon(points)
+            # for the grid squares in the border of study area, for a less than 30% of coincidence, it is avoid
+            # for larger than 30% coincidence, proportional density over a full coincidence square is assigned
+            if polygon.intersects(study_area_shp):
+                percentage = study_area_shp.intersection(polygon).area / (grid_size ** 2)
+                m[1][i][j] = percentage
+                if percentage > 0.3:
+                    value = m[0][i][j] / percentage
+                else:
+                    continue
+            else:
+                m[1][i][j] = 0
+
+            if m[0][i][j] == 0: continue
+
             # transform coordinates system from epsg 2056 to epsg 4326
             transformer = Transformer.from_crs(2056, 4326)
             for pt in transformer.itransform(points):
                 points_4326.append((pt[1],pt[0]))
             poly_4326 = Polygon(points_4326)
-
+            # value = m[0][i][j]
             new_row = {'id': str(id),
-                       'value': m[i][j],
+                       'value': value,
                        'geometry': poly_4326
                        }
             m_df = m_df.append(new_row, ignore_index=True)
             id += 1
+
     m_gdf = gpd.GeoDataFrame(m_df)
     m_gdf.to_file(r"C:\Users\Ion\TFM\data\study_areas\zurich_small/output.json", driver="GeoJSON")
 
@@ -85,6 +101,7 @@ def create_distrib(fac_df, grid_size):
     # area_gdf.to_file(r"C:\Users\Ion\TFM\data\study_areas\zurich_small/home_points.shp")
 
     # Initialize the map:
+    map_name = str(area) + '_' + str(pct) + '_' + str(grid_size) + 'gs'
     map2 = folium.Map(location=[47.376155, 8.531508], zoom_start=12)
     # Add the color for the chloropleth:
     folium.Choropleth(
@@ -94,31 +111,33 @@ def create_distrib(fac_df, grid_size):
         data=m_df,
         columns=['id', 'value'],
         key_on='feature.properties.id',
-        fill_color='RdBu',
+        fill_color='YlOrRd',
         fill_opacity=0.7,
         line_opacity=0.2,
-        legend_name='zurich population distribution'
+        legend_name=map_name
     ).add_to(map2)
     # Save to html
-    map_name = str(area) + '_' + str(pct) + '_' + str(grid_size) + 'gs.html'
-    map2.save(os.path.join(r"C:\Users\Ion\TFM\data\study_areas\zurich_small/", map_name))
+    map2.save(os.path.join(r"C:\Users\Ion\TFM\data\study_areas\zurich_small/", str(map_name) + '.html'))
+    return m
 
-area = "zurich_large"
+area = "zurich_small"
 facility = "home"
-pct = "10pct"
+pct = "1pct"
 population_path = r"C:/Users/Ion/TFM/data/population_db/test/switzerland_" + str(pct)
 shp_path = r"C:/Users/Ion/TFM/data/study_areas" + "/" + str(area)
-study_area_shp = gpd.read_file(str(shp_path) + "/" + area + ".shp").iloc[0]['geometry']
+study_area_gdf = gpd.read_file(str(shp_path) + "/" + area + ".shp")
+study_area_gdf = gpd.read_file(str(shp_path) + "/" + area + ".shp").iloc[1]['geometry']
 fac_df = pd.read_csv(str(population_path) + "/loc_" + str(facility) + ".csv")
+# grid_size = int(input('Enter grid size in meters: '))
+grid_size = 1000
+m = create_distrib(study_area_shp, fac_df, grid_size)
 
-grid_size = 500
-create_distrib(fac_df, grid_size)
 
 # code finishes here
 # ------------------------------------------
 # OTHER WAYS TO PLOT THE MAP IN THE BACKGROUND
-# # Create a dataset (fake)
-#     df = pd.DataFrame(m)
+# Create a dataset (fake)
+#     df = pd.DataFrame(m[1])
 #
 #     # plot using a color palette
 #     sns.heatmap(df, cmap="YlGnBu")
@@ -151,3 +170,16 @@ create_distrib(fac_df, grid_size)
 #     df = df.to_crs(epsg=3857)
 #     ax = df.plot(figsize=(10, 10), alpha=0.5, edgecolor='k')
 #     ctx.add_basemap(ax)
+
+# how to combine polygons from a gdf and safe to file the final polygon
+# poly_list = []
+# for index, row in study_area_gdf.iterrows():
+#     poly_list.append(row['geometry'])
+# study_area_shp = cascaded_union(poly_list)
+# m_ggdf = pd.DataFrame(data=None, columns=['id', 'geometry'])
+# new_row = {'id': 0,
+#            'geometry': study_area_shp
+#            }
+# m_ggdf = m_ggdf.append(new_row, ignore_index=True)
+# area_gdf = gpd.GeoDataFrame(m_ggdf)
+# area_gdf.to_file(r"C:\Users\Ion\TFM\data\study_areas\zurich_small/zurich_kreis.shp")

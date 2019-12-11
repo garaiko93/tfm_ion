@@ -49,14 +49,11 @@ from population_parser import population_parser_line
 #                   2. Output directory to save new files
 #                   3. Scenario (i.e. 'switzerland_1pm', 'switzerland_1pct', 'switzerland_10pct'
 # '''
-pop_list = ['switzerland_1pm', 'switzerland_1pct', 'switzerland_10pct']
-for pop in pop_list:
-#     population_parser_etree(r'C:\Users\Ion\TFM\data\scenarios',
-#                       r'C:\Users\Ion\TFM\data\population_db',
-#                       pop)
-    population_parser_line(r'C:\Users\Ion\TFM\data\scenarios',
-                           r'C:\Users\Ion\TFM\data\population_db/test',
-                           pop)
+# pop_list = ['switzerland_1pm', 'switzerland_1pct', 'switzerland_10pct']
+# for pop in pop_list:
+#     population_parser_line(r'C:\Users\Ion\TFM\data\scenarios',
+#                            r'C:\Users\Ion\TFM\data\population_db/test',
+#                            pop)
 
 # -------------------------------------------------------------------------------------------------------------
 # CREATE AND ANALYSE EVERY STUDY AREA
@@ -69,8 +66,8 @@ for pop in pop_list:
 #                   2. Directory of out_path from create_graph() where graph and nodes_dict files are
 #                   (i.e.: r"C:\Users\...\network\graph.gpickle")
 # '''
-# filter_graph(r"C:\Users\Ion\TFM\data\study_areas",
-#              r"C:\Users\Ion\TFM\data\network_graphs")
+filter_graph(r"C:\Users\Ion\TFM\data\study_areas",
+             r"C:\Users\Ion\TFM\data\network_graphs")
 
 # print(options.study_areas)
 # print(options.network_graphs)

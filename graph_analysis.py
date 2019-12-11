@@ -7,6 +7,7 @@ import copy
 import os
 from shapely.geometry import Point, Polygon
 import datetime
+from shapely.geometry.polygon import LinearRing
 
 from network_graph import check_iso_graph
 
@@ -62,6 +63,13 @@ def filter_graph(study_area_dir, graph_file):
         print(area, datetime.datetime.now().time())
         shp_path = str(study_area_dir) + "/" + area
         study_area_shp = gpd.read_file(str(shp_path) + "/" + area + ".shp").iloc[0]['geometry']
+
+        # Create a buffer area for the shp file to avoid problems at the moment of calculating attributes
+        buffer = 2000 #in meters
+        poly_line = LinearRing(study_area_shp.exterior)
+        poly_line_offset = poly_line.buffer(buffer, resolution=16, join_style=2, mitre_limit=1)
+        study_area_shp = Polygon(poly_line_offset.exterior)
+
         # Check if this area was filtered already by checking existance of done.txt
         if os.path.isfile(str(shp_path) + "/" + area + "_MultiDiGraph_largest.gpickle") == True:
             if attr_df['area'].str.contains(area).any() == False:
