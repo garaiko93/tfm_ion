@@ -8,7 +8,6 @@ import os
 from pyproj import Transformer
 from shapely.ops import cascaded_union
 
-
 def create_distrib(study_area_shp, fac_df, grid_size):
     drop_rows = []
     for index, row in fac_df.iterrows():
