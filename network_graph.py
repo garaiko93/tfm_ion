@@ -46,7 +46,6 @@ def check_iso_graph(G,out_path,filename):
                  str(out_path) + "/" + str(filename) + "_largest.gpickle")
 
     return G,isolated, largest
-a = 54
 
 def create_graph(G,edges_list,out_path,filename,nodes_dict):
     # introduce every way as edge with attributes of time and new_id

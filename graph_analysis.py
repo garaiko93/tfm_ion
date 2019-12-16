@@ -6,6 +6,7 @@ import shapely.geometry as geo
 import networkx as nx
 import copy
 import os
+import osmnx
 from shapely.geometry import Point, Polygon
 import datetime
 from shapely.geometry.polygon import LinearRing
@@ -20,7 +21,7 @@ def dict_data(dicti, shp_path, attrib_name):
         pickle.dump(dicti, f, pickle.HIGHEST_PROTOCOL)
     print(str(attrib_name) + ' (len,min,max,avg): ' +
           str(len_val) + ', ' + str(min_val) + ', ' + str(max_val) + ', ' + str(avg_val))
-    return [len_val, min_val,max_val,avg_val]
+    return str([len_val, min_val,max_val,avg_val])
 
 def cut_graph(G,shp_path, graphtype, area, study_area_shp):
     new_G = copy.deepcopy(G)
@@ -69,18 +70,18 @@ def filter_graph(study_area_dir, graph_file):
         # poly_line = LinearRing(study_area_shp.exterior)
         # poly_line_offset = poly_line.buffer(buffer, resolution=16, join_style=2, mitre_limit=1)
         # study_area_shp = Polygon(poly_line_offset.exterior)
-        # how to combine polygons from a gdf and safe to file the final polygon
-        m_ggdf = pd.DataFrame(data=None, columns=['id', 'geometry'])
-        new_row = {'id': 0,
-                   'geometry': study_area_shp
-                   }
-        m_ggdf = m_ggdf.append(new_row, ignore_index=True)
-        area_gdf = gpd.GeoDataFrame(m_ggdf)
-        area_gdf.to_file(str(shp_path) + "/" + area + ".shp")
+        # how to combine polygons from a gdf and save to file the final polygon
+        # m_ggdf = pd.DataFrame(data=None, columns=['id', 'geometry'])
+        # new_row = {'id': 0,
+        #            'geometry': study_area_shp
+        #            }
+        # m_ggdf = m_ggdf.append(new_row, ignore_index=True)
+        # area_gdf = gpd.GeoDataFrame(m_ggdf)
+        # area_gdf.to_file(str(shp_path) + "/" + area + ".shp")
 
         # Check if this area was filtered already by checking existance of done.txt
         if os.path.isfile(str(shp_path) + "/" + area + "_MultiDiGraph_largest.gpickle") == True:
-            print('Calculating topology attributes, graph already exists')
+            print('Graph already exists')
             attr_df = topology_attributes(study_area_dir, area, attr_df)
             continue
 
@@ -108,7 +109,7 @@ def filter_graph(study_area_dir, graph_file):
 # NETWORK ANALYSIS ATTRIBUTES
 def topology_attributes(study_area_dir, area, attr_df):
     # study_area_dir = r'C:\Users\Ion\TFM\data\study_areas'
-    # area = 'zurich_small'
+    # area = 'luzern'
     new_G = nx.read_gpickle(str(study_area_dir) + '/' + area + '/' + area + '_MultiDiGraph_largest.gpickle')
     new_diG = nx.read_gpickle(str(study_area_dir) + '/' + area + '/' + area + '_DiGraph_largest.gpickle')
     shp_path = str(study_area_dir) + '/' + area
@@ -141,13 +142,23 @@ def topology_attributes(study_area_dir, area, attr_df):
 
     # create empty row with areas name to add attributes
     if area not in attr_df.index:
-        new_row = {'area': area,
-                   'n_nodes': len(list(new_G)),
-                   'n_edges': len(new_G.edges())
-                   }
-        attr_df = attr_df.append(new_row, ignore_index=True)
+        # new_row = {'n_nodes': len(list(new_G)),
+        #            'n_edges': len(new_G.edges())
+        #            }
+        s = pd.Series(data=[len(list(new_G)),len(new_G.edges())],
+                      index=['n_nodes','n_edges'],
+                      name=area,
+                      dtype=str)
+        attr_df = attr_df.append(s)
+        # attr_df = attr_df.append(pd.Series(name=area, dtype=object))
+        # attr_df.at[area, 'n_nodes'] = len(list(new_G))
+        # attr_df.at[area, 'n_edges'] = len(new_G.edges())
+        # attr_df.dtypes = attr_df.astype(object).dtypes
+        # attr_df = attr_df.append(new_row, ignore_index=False)
+        # attr_df.iloc[1].apply(object)
+        # attr_df = attr_df.astype(object)
     else:
-        print('This area was already filtered and attributes calculated, checking for additional attributes')
+        print('Area exists in attributes table, checking for additional attributes')
     # ----------------------------------------------------------------------
     # 1. AVG DEGREE OF GRAPH: number of edges adjacent per node
     if pd.isnull(attr_df.loc[area, 'avg_degree']) == True:
@@ -189,13 +200,11 @@ def topology_attributes(study_area_dir, area, attr_df):
     # 6. BETWEENNESS CENTRALITY: how many times a node or edge is passed for the sp
     # nodes betweenness
     if pd.isnull(attr_df.loc[area, 'node_betweenness*']) == True:
-        print('shouldnt be here')
         node_betw_centr = nx.betweenness_centrality(new_diG, weight='time')
         node_betw_centr_data = dict_data(node_betw_centr, shp_path, 'node_betweenness')
         attr_df.at[area, 'node_betweenness'] = node_betw_centr_data
     # edges betweenness
     if pd.isnull(attr_df.loc[area, 'edge_betweenness']) == True:
-        print('shouldnt be here')
         edge_betw_centr = nx.edge_betweenness_centrality(new_G, weight='time')
         edge_betw_centr_data = dict_data(edge_betw_centr, shp_path, 'edge_betweenness')
         attr_df.at[area, 'edge_betweenness'] = edge_betw_centr_data
@@ -203,7 +212,6 @@ def topology_attributes(study_area_dir, area, attr_df):
     # 7. CLOSENESS CENTRALITY: Of a node is the average length of the shortest path from the node to all other nodes
     # nodes betweenness
     if pd.isnull(attr_df.loc[area, 'node_closeness*']) == True:
-        print('calculating closeness of ' + str(area))
         node_close_centr = nx.betweenness_centrality(new_diG, weight='time')
         node_close_centr_data = dict_data(node_close_centr, shp_path, 'node_closeness')
         attr_df.at[area, 'node_closeness*'] = node_close_centr_data
@@ -226,7 +234,7 @@ def topology_attributes(study_area_dir, area, attr_df):
     if pd.isnull(attr_df.loc[area, 'clustering*']) == True:
         clustering = nx.clustering(new_diG)
         clustering_data = dict_data(clustering, shp_path, 'clustering')
-        attr_df.at[area, 'clustering'] = clustering_data
+        attr_df.at[area, 'clustering*'] = clustering_data
 
     # ----------------------------------------------------------------------
     # NETWORK SHAPE ATTRIBUTES
@@ -236,8 +244,8 @@ def topology_attributes(study_area_dir, area, attr_df):
         eccentricity = nx.algorithms.distance_measures.eccentricity(new_G)
         eccentricity_data = dict_data(eccentricity, shp_path, 'eccentricity')
         attr_df.at[area, 'clustering'] = eccentricity_data
-        attr_df.at[area, 'radius'] = eccentricity_data[1]
-        attr_df.at[area, 'diameter'] = eccentricity_data[2]
+        attr_df.at[area, 'radius'] = nx.radius(new_G)
+        attr_df.at[area, 'diameter'] = nx.diameter(new_G)
 
     # Center: center is the set of nodes with eccentricity equal to radius.
     if pd.isnull(attr_df.loc[area, 'center_nodes']) == True:
