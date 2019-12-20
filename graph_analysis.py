@@ -91,7 +91,7 @@ def filter_graph(study_area_dir, graph_file):
         # Check if this area was filtered already by checking existance of done.txt
         if os.path.isfile(str(shp_path) + "/" + area + "_MultiDiGraph_largest.gpickle") == True:
             print('Graph already exists')
-            attr_df = topology_attributes(study_area_dir, area, attr_df, stats_df)
+            attr_df = topology_attributes(study_area_dir, area, attr_df, stats_df, study_area_shp, nodes_dict)
             continue
 
         new_G = cut_graph(G, shp_path, 'MultiDiGraph', area, study_area_shp)
@@ -110,16 +110,16 @@ def filter_graph(study_area_dir, graph_file):
         gdf.to_file(str(shp_path) + "/" + str(area) + "_network" + ".shp")
 
         # Calculate attributes for new areas that has now the graph filtered
-        attr_df = topology_attributes(study_area_dir, area, attr_df, stats_df)
+        attr_df = topology_attributes(study_area_dir, area, attr_df, stats_df, study_area_shp, nodes_dict)
         print('----------------------------------------------------------------------')
     print('----------------------------------------------------------------------')
     print('Process finished correctly: shp and graph files created in destination')
 
 # NETWORK ANALYSIS ATTRIBUTES
-def topology_attributes(study_area_dir, area, attr_df, stats_df):
+def topology_attributes(study_area_dir, area, attr_df, stats_df, study_area_shp, nodes_dict):
     # graph_file = r'C:\Users\Ion\TFM\data\network_graphs\test'
-    # study_area_dir = r'C:\Users\Ion\TFM\data\study_areas'
-    # area = 'bern'
+    #     # study_area_dir = r'C:\Users\Ion\TFM\data\study_areas'
+    #     # area = 'bern'
     new_G = nx.read_gpickle(str(study_area_dir) + '/' + area + '/' + area + '_MultiDiGraph_largest.gpickle')
     new_diG = nx.read_gpickle(str(study_area_dir) + '/' + area + '/' + area + '_DiGraph_largest.gpickle')
     shp_path = str(study_area_dir) + '/' + area
@@ -127,17 +127,24 @@ def topology_attributes(study_area_dir, area, attr_df, stats_df):
     # check if table is up to date with all attributes:
     attributes = ['n_nodes',
                'n_edges',
+                'area',
                'avg_degree',
+                  'avg_neighbor_degree',
                'degree_centrality',
                'avg_degree_connectivity',
+                  'node_connectivity',
+                  'edge_connectivity',
+                  'avg_node_connectivity',
                'avg_edge_density',
                'avg_shortest_path_duration',
                'node_betweenness*',
                'edge_betweenness',
+                'node_straightness',
                'node_closeness*',
                'node_load_centrality',
                'edge_load_centrality',
                'clustering*',
+                  'clustering_w*',
                'eccentricity',
                'radius',
                'diameter',
@@ -153,7 +160,7 @@ def topology_attributes(study_area_dir, area, attr_df, stats_df):
 
     # create empty row with areas name to add attributes
     if area not in attr_df.columns:
-        new_column = pd.DataFrame({area: [len(list(new_G)), len(new_G.edges())]}, index=['n_nodes', 'n_edges'])
+        new_column = pd.DataFrame({area: [len(list(new_G)), len(new_G.edges()), study_area_shp]}, index=['n_nodes', 'n_edges', 'area'])
         attr_df = pd.concat([attr_df, new_column], axis=1, sort=False)
         attr_df = attr_df.astype({area: object})
         # attr_df[area].dtype
@@ -176,19 +183,35 @@ def topology_attributes(study_area_dir, area, attr_df, stats_df):
         attr_df.at['avg_degree', area] = avg_deg
         attr_df.to_csv(str(study_area_dir) + "/attribute_table.csv", sep=",", index=True, index_label=['attributes'])
         print('Average degree(edges adj per node): ' + str(avg_deg))
-    # ----------------------------------------------------------------------
-    # 2. DEGREE OF CENTRALITY:
-    if pd.isnull(attr_df.loc['avg_degree_connectivity', area]) == True:
-        degree_centr = nx.algorithms.degree_centrality(new_G)
-        degree_centr_data = dict_data(degree_centr, shp_path, 'degree_centrality')
-        attr_df.at['avg_degree_connectivity', area] = degree_centr_data
+    if pd.isnull(attr_df.loc['avg_neighbor_degree', area]) == True:
+        avg_neighbor_degree = nx.average_neighbor_degree(new_G)
+        avg_neighbor_degree_data = dict_data(avg_neighbor_degree, shp_path, 'avg_neighbor_degree')
+        attr_df.at['avg_neighbor_degree', area] = avg_neighbor_degree_data
         attr_df.to_csv(str(study_area_dir) + "/attribute_table.csv", sep=",", index=True, index_label=['attributes'])
     # ----------------------------------------------------------------------
-    # 3. AVG DEGREE OF CONECTIVITY: For a node of degree k - What is the average of its neighbours' degree?
+    # 2. DEGREE OF CENTRALITY:
+    if pd.isnull(attr_df.loc['degree_centrality', area]) == True:
+        degree_centr = nx.algorithms.degree_centrality(new_G)
+        degree_centr_data = dict_data(degree_centr, shp_path, 'degree_centrality')
+        attr_df.at['degree_centrality', area] = degree_centr_data
+        attr_df.to_csv(str(study_area_dir) + "/attribute_table.csv", sep=",", index=True, index_label=['attributes'])
+    # ----------------------------------------------------------------------
+    # 3. CONNECTIVITY: For a node of degree k - What is the average of its neighbours' degree?
     if pd.isnull(attr_df.loc['avg_degree_connectivity', area]) == True:
         avg_degree_connect = nx.average_degree_connectivity(new_G)
         avg_degree_connect_data = dict_data(avg_degree_connect, shp_path, 'avg_degree_connect')
         attr_df.at['avg_degree_connectivity', area] = avg_degree_connect_data
+        attr_df.to_csv(str(study_area_dir) + "/attribute_table.csv", sep=",", index=True, index_label=['attributes'])
+    if pd.isnull(attr_df.loc['node_connectivity', area]) == True:
+        node_connect = nx.node_connectivity(new_G)
+        attr_df.at['node_connectivity', area] = node_connect
+        print('Node connectivity k: ' + str(node_connect))
+        edge_connect = nx.edge_connectivity(new_G)
+        attr_df.at['edge_connectivity', area] = edge_connect
+        print('Node connectivity k: ' + str(edge_connect))
+        avg_node_connect =nx.average_node_connectivity(new_G)
+        attr_df.at['avg_node_connectivity', area] = avg_node_connect
+        print('Node connectivity k: ' + str(avg_node_connect))
         attr_df.to_csv(str(study_area_dir) + "/attribute_table.csv", sep=",", index=True, index_label=['attributes'])
     # ----------------------------------------------------------------------
     # 4. AVG EDGE DENSITY: Average edge density of the Graphs
@@ -228,6 +251,29 @@ def topology_attributes(study_area_dir, area, attr_df, stats_df):
         attr_df.to_csv(str(study_area_dir) + "/attribute_table.csv", sep=",", index=True, index_label=['attributes'])
 
     # ----------------------------------------------------------------------
+    # 8. STRAIGHTNESS CENTRALITY: compares the shortest path with the euclidean distance of each pair of nodes
+    if pd.isnull(attr_df.loc['node_straightness', area]) == True:
+        node_straightness = {}
+        for i in list(new_G.nodes):
+            i_lonlat = Point(nodes_dict[str(i)])
+            dist_comp_list = []
+            for j in list(new_G.nodes):
+                if i == j:
+                    continue
+                j_lonlat = Point(nodes_dict[str(j)])
+                eucl_dist = i_lonlat.distance(j_lonlat)
+                sp_dist = nx.dijkstra_path_length(new_G, i, j, weight='length')
+                dist_comp = eucl_dist / sp_dist
+
+                dist_comp_list.append(dist_comp)
+            straightness = (1/len(list(new_G.nodes))-1)*sum(dist_comp_list)
+            node_straightness[i] = straightness
+
+        node_straightness_data = dict_data(node_straightness, shp_path, 'node_straightness')
+        attr_df.at['node_straightness', area] = node_straightness_data
+        attr_df.to_csv(str(study_area_dir) + "/attribute_table.csv", sep=",", index=True, index_label=['attributes'])
+
+    # ----------------------------------------------------------------------
     # 8. LOAD CENTRALITY:counts the number of shortest paths which cross each node/edge
     # nodes load:
     if pd.isnull(attr_df.loc['node_load_centrality', area]) == True:
@@ -248,6 +294,11 @@ def topology_attributes(study_area_dir, area, attr_df, stats_df):
         clustering = nx.clustering(new_diG)
         clustering_data = dict_data(clustering, shp_path, 'clustering')
         attr_df.at['clustering*', area] = clustering_data
+
+        clustering_weighted = nx.clustering(new_diG, weight='time')
+        clustering_weighted_data = dict_data(clustering_weighted, shp_path, 'clustering')
+        attr_df.at['clustering_w*', area] = clustering_weighted_data
+
         attr_df.to_csv(str(study_area_dir) + "/attribute_table.csv", sep=",", index=True, index_label=['attributes'])
 
     # ----------------------------------------------------------------------
@@ -283,15 +334,18 @@ def topology_attributes(study_area_dir, area, attr_df, stats_df):
 
     # ----------------------------------------------------------------------
     # 11. OSMnx stats module
-    if os.path.isfile(str(study_area_dir) + '/' + 'stats_basic.pkl') == True:
-        basic_stats = ox.basic_stats(new_G, area=study_area_shp.area, clean_intersects=False,
-                                     tolerance=15, circuity_dist='euclidean')
+    if os.path.isfile(str(study_area_dir) + '/' + 'stats_basic.pkl') == False:
+        print('Calculating basic_stats')
+        new_G.graph['crs'] = 'epsg:2056'
+        new_G.graph['name'] = str(area) + '_MultiDiGraph'
+        basic_stats = ox.basic_stats(new_G, area=study_area_shp.area, clean_intersects=True,tolerance=15, circuity_dist='euclidean')
         with open(str(shp_path) + '/stats_basic.pkl', 'wb') as f:
             pickle.dump(basic_stats, f, pickle.HIGHEST_PROTOCOL)
-    if os.path.isfile(str(study_area_dir) + '/' + 'stats_extended.pkl') == True:
-        extended_stats = ox.extended_stats(new_G, connectivity=True, anc=True, ecc=True, bc=True, cc=True)
-        with open(str(shp_path) + '/stats_extended.pkl', 'wb') as f:
-            pickle.dump(extended_stats, f, pickle.HIGHEST_PROTOCOL)
+    # if os.path.isfile(str(study_area_dir) + '/' + 'stats_extended.pkl') == False:
+        # print('Calculating extended_stats')
+        # extended_stats = ox.extended_stats(new_G, connectivity=True, anc=True, ecc=True, bc=True, cc=True)
+        # with open(str(shp_path) + '/stats_extended.pkl', 'wb') as f:
+        #     pickle.dump(extended_stats, f, pickle.HIGHEST_PROTOCOL)
 
     # Create shp file with final graph
     # attr_df.to_csv(str(study_area_dir) + "/attribute_table.csv", sep=",", index=True, index_label=['attributes'])
