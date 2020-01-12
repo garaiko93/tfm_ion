@@ -8,6 +8,7 @@ import networkx as nx
 import copy
 import os
 from shutil import copyfile
+from progressbar import Percentage, ProgressBar, Bar, ETA
 
 # Identify the largest component and the "isolated" nodes
 def check_iso_graph(G,out_path,filename):
@@ -66,6 +67,26 @@ def create_graph(G,edges_list,out_path,filename,nodes_dict):
     print('------------------------------------------------------------------------')
     return G, G_isolated, isolated, largest
 
+# create shapefile with all nodes/edges excluded from the final graph (only for visual purpose)
+def sw_nodes(way_id):
+    coord_list = []
+    start_node_id = ways_dict[str(way_id)][0]
+    end_node_id = ways_dict[str(way_id)][1]
+    for node in [start_node_id, end_node_id]:
+        coord_list.append(nodes_dict[node])
+    line = geo.LineString(coord_list)
+    return line
+
+def create_shp(edges, file_name):
+    train = ch_ways_df[["start_node_id", "end_node_id", "time", "way_id", "modes"]]
+    edges_df = pd.DataFrame.from_records(list(edges), columns=["start_node_id", "end_node_id"])
+    intersected_df = pd.merge(edges_df, train, how='inner')
+
+    intersected_df['geometry'] = intersected_df.apply(lambda row: sw_nodes(row['way_id']), axis=1)
+    intersected_gdf = gpd.GeoDataFrame(intersected_df)
+    intersected_gdf.to_file(str(out_path) + "/" + str(file_name) + ".shp")
+    print('Shapefile exported as ' + str(file_name))
+
 def parse_network(raw_file, out_path):
     if not os.path.exists(str(out_path)):
         os.makedirs(str(out_path))
@@ -80,16 +101,17 @@ def parse_network(raw_file, out_path):
     nodes_n = 0
     ways_n = 0
     lines_nodes = 0
-    lines_ways = 0
+    lines_links = 0
     lines_europe = 0
 
     # by reading the selected file line by line, for each xml element type this code splits the 3 of them in 3 different files for: NODES, WAYS and RELATIONS elements
     if os.path.isfile(str(out_path)+"\switzerland_network_nodes.xml.gz") == False and \
             os.path.isfile(str(out_path)+"\switzerland_network_ways.xml.gz") == False:
+        print('Splitting Raw Network file into nodes-links ...')
         with gzip.open(raw_file) as f:
             with gzip.open(str(out_path)+"\switzerland_network_nodes.xml.gz", 'wb') as f1:
                 with gzip.open(str(out_path)+"\switzerland_network_ways.xml.gz", 'wb') as f2:
-                    for line in (f):
+                    for line in f:
                         lines_europe += 1
                         if b"<node" in line:
                             node_check = 1
@@ -105,17 +127,25 @@ def parse_network(raw_file, out_path):
                             ways_n += 1
                         if way_check == 1:
                             f2.write(line)
-                            lines_ways += 1
+                            lines_links += 1
                             if b"</link>" in line:
                                 way_check = 0
+        # export lines numbers
+        lines = {}
+        lines['lines_nodes'] = lines_nodes
+        lines['lines_links'] = lines_links
+        lines['lines_europe'] = lines_europe
+        with open(str(out_path) + '/lines.pkl', 'wb') as f:
+            pickle.dump(lines, f, pickle.HIGHEST_PROTOCOL)
     else:
-        lines_nodes = 881661
-        lines_ways = 7181593
-        lines_europe = 8063269
+        file = open(str(out_path) + "/lines.pkl", 'rb')
+        lines = pickle.load(file)
+        lines_nodes = lines['lines_nodes']
+        lines_links = lines['lines_links']
 
     # SCREEN PRINT
     print('Lines of nodes: ' + str(lines_nodes))
-    print('Lines of ways: ' + str(lines_ways))
+    print('Lines of links: ' + str(lines_links))
     print('Lines in file: '+ str(lines_europe))
     print('Raw file splitted correctly in out_path')
     print('------------------------------------------------------------------------')
@@ -123,11 +153,14 @@ def parse_network(raw_file, out_path):
     # NODES
     # -----------------------------------------------------------------------------
     if os.path.isfile(str(out_path) + "/ch_nodes_dict2056.pkl") == False:
+        print('Parsing nodes from OSM xml file ...')
         nodes_dict = {}
+        pbar = ProgressBar(widgets=[Bar('>', '[', ']'), ' ',
+                                    Percentage(), ' ',
+                                    ETA()], maxval=lines_nodes)
         with gzip.open(str(out_path) + "\switzerland_network_nodes.xml.gz") as f:
             #     reading line by line the 'nodes' file created at the beginning, data for each node fulfilling the conditions are stored for the output
-            # for line in tqdm(f, total=lines_nodes):
-            for line in f:
+            for line in pbar(f):
                 if b"<node" in line:
                     # records the attributes of the element: node_id, latitude and longitude
                     m = re.search(rb'id="(.+)" x="([+-]?\d+(?:\.\d+)?)" y="([+-]?\d+(?:\.\d+)?)"', line)
@@ -156,11 +189,14 @@ def parse_network(raw_file, out_path):
         ways_count = 0
         ways_dict = {}
         freespeed = None
+        pbar = ProgressBar(widgets=[Bar('>', '[', ']'), ' ',
+                                    Percentage(), ' ',
+                                    ETA()], maxval=lines_links)
 
         # this reads WAYS file line by line, taking the information is relevant from attributes and children elements
         with gzip.open(str(out_path) + "\switzerland_network_ways.xml.gz") as f:
             # for line in tqdm_notebook(f, total=lines_ways):
-            for line in f:
+            for line in pbar(f):
                 if b"<link " in line:
                     #             records the way id and other attributes
                     way_check = 1
@@ -305,7 +341,7 @@ def parse_network(raw_file, out_path):
     print('------------------------------------------------------------------------')
 
     # -------------------------------------------------------------------
-    # Create a graphs from network
+    # CREATE GRAPH FROM NETWORK DATABASE
     # -------------------------------------------------------------------
     if os.path.isfile(str(out_path) + "/ch_MultiDiGraph_bytime.gpickle") == False:
         # create MultiDiGraph to include all edges
@@ -314,7 +350,7 @@ def parse_network(raw_file, out_path):
         edges_list = edges.values.tolist()
         [G, G_isolated, isolated, largest] = create_graph(G,edges_list,out_path,'ch_MultiDiGraph_bytime',nodes_dict)
     else:
-        G = nx.read_gpickle(str(out_path) + '\\ch_MultiDiGraph_bytime_largest.gpickle')
+        G = nx.read_gpickle(str(out_path) + '/ch_MultiDiGraph_bytime_largest.gpickle')
         print('G MultiDiGraph already exists, loaded')
 
     if os.path.isfile(str(out_path) + "/ch_DiGraph_bytime.gpickle") == False:
@@ -325,28 +361,8 @@ def parse_network(raw_file, out_path):
         [G_simple, G_isolated, isolated, largest] = create_graph(G_simple, edges_list_s, out_path,
                                                                  'ch_DiGraph_bytime', nodes_dict)
     else:
-        G_simple = nx.read_gpickle(str(out_path) + '\\ch_DiGraph_bytime_largest.gpickle')
+        G_simple = nx.read_gpickle(str(out_path) + '/ch_DiGraph_bytime_largest.gpickle')
         print('G DiGraph already exists, loaded')
-
-    # create shapefile with all nodes/edges excluded from the final graph (only for visual purpose)
-    def sw_nodes(way_id):
-        coord_list = []
-        start_node_id = ways_dict[str(way_id)][0]
-        end_node_id = ways_dict[str(way_id)][1]
-        for node in [start_node_id, end_node_id]:
-            coord_list.append(nodes_dict[node])
-        line = geo.LineString(coord_list)
-        return line
-
-    def create_shp(edges, file_name):
-        train = ch_ways_df[["start_node_id", "end_node_id", "time", "way_id", "modes"]]
-        edges_df = pd.DataFrame.from_records(list(edges), columns=["start_node_id", "end_node_id"])
-        intersected_df = pd.merge(edges_df, train, how='inner')
-
-        intersected_df['geometry'] = intersected_df.apply(lambda row: sw_nodes(row['way_id']), axis=1)
-        intersected_gdf = gpd.GeoDataFrame(intersected_df)
-        intersected_gdf.to_file(str(out_path) + "/" + str(file_name) + ".shp")
-        print('Shapefile exported as ' + str(file_name))
 
     # LARGEST ISLAND OF GRAPH
     if os.path.isfile(str(out_path) + "/ch_MultiDiGraph_bytime_largest.shp") == False:
@@ -357,7 +373,7 @@ def parse_network(raw_file, out_path):
             iso_edges = G_isolated.edges(list(isolated))
             create_shp(iso_edges, 'isolated_graph')
             # export GRAPH to file
-            nx.write_gpickle(G_isolated, str(out_path) + "\isolated_graph.gpickle")
+            nx.write_gpickle(G_isolated, str(out_path) + "/isolated_graph.gpickle")
 
     print('------------------------------------------------------------------------')
     print('Process finished correctly: files created in out_path')

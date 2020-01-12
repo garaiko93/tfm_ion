@@ -33,8 +33,8 @@ from population_parser import population_parser_line
 # Needed arguments: 1. Directory with name to the network compressed XML file (i.e.: r"C:\Users\...\network.xml.gz")
 #                   2. Output directory for all new files created (i.e.: r"C:\Users\...\network")
 # '''
-# parse_network(r"C:\Users\Ion\TFM\data\scenarios\switzerland_1pm\switzerland_network.xml.gz",
-#               r"C:\Users\Ion\TFM\data\network_graphs\test")
+parse_network(r"C:\Users\Ion\TFM\data\scenarios\switzerland_1pm\switzerland_network.xml.gz",
+              r"C:\Users\Ion\TFM\data\network_graphs\test")
 
 # -------------------------------------------------------------------------------------------------------------
 # PARSE AND CREATE POPULATION DATABASE FROM XML FILE
@@ -66,8 +66,8 @@ from population_parser import population_parser_line
 #                   2. Directory of out_path from create_graph() where graph and nodes_dict files are
 #                   (i.e.: r"C:\Users\...\network\graph.gpickle")
 # '''
-filter_graph(r"C:\Users\Ion\TFM\data\study_areas",
-             r"C:\Users\Ion\TFM\data\network_graphs")
+# filter_graph(r"C:\Users\Ion\TFM\data\study_areas",
+#              r"C:\Users\Ion\TFM\data\network_graphs")
 
 # print(options.study_areas)
 # print(options.network_graphs)
