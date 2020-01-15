@@ -281,7 +281,7 @@ def parse_network(raw_file, out_path):
         # dup_ways_bynode= dup_ways_bynode.drop(['way_id'],axis = 1).drop_duplicates(keep=False) do not activate this
         dup_ways_bynode = dup_ways_bynode.sort_values(by=['start_node_id', 'end_node_id'])
         dup_ways_bynode = pd.merge(dup_ways_bynode, ch_ways_df, how='inner')
-        dup_ways_bynode.to_csv(str(out_path) + "\dup_ways_bynode.csv", sep=",", index=None)
+        dup_ways_bynode.to_csv(str(out_path) + "/dup_ways_bynode.csv", sep=",", index=None)
         print('There are ' + str(len(ch_ways_df[ch_ways_df.duplicated(['start_node_id','end_node_id'],keep='first')])) +
               ' links which have at least one duplicate.')
 
@@ -343,29 +343,21 @@ def parse_network(raw_file, out_path):
     # -------------------------------------------------------------------
     # CREATE GRAPH FROM NETWORK DATABASE
     # -------------------------------------------------------------------
-    if os.path.isfile(str(out_path) + "/ch_MultiDiGraph_bytime.gpickle") == False:
+    if os.path.isfile(str(out_path) + "/ch_MultiDiGraph_bytime.gpickle") == False or \
+            os.path.isfile(str(out_path) + "/ch_DiGraph_bytime.gpickle") == False:
         # create MultiDiGraph to include all edges
         G = nx.MultiDiGraph()
         edges = ch_ways_df[["start_node_id", "end_node_id", "time", "way_id", "modes", "length"]]
         edges_list = edges.values.tolist()
         [G, G_isolated, isolated, largest] = create_graph(G,edges_list,out_path,'ch_MultiDiGraph_bytime',nodes_dict)
-    else:
-        G = nx.read_gpickle(str(out_path) + '/ch_MultiDiGraph_bytime_largest.gpickle')
-        print('G MultiDiGraph already exists, loaded')
 
-    if os.path.isfile(str(out_path) + "/ch_DiGraph_bytime.gpickle") == False:
         # Also with 'clean_data' create a DiGraph for attributes comparison with fastest duplicated ways
         G_simple = nx.DiGraph()
         edges_s = clean_ways[["start_node_id", "end_node_id", "time", "way_id", "modes", "length"]]
         edges_list_s = edges_s.values.tolist()
         [G_simple, G_isolated, isolated, largest] = create_graph(G_simple, edges_list_s, out_path,
                                                                  'ch_DiGraph_bytime', nodes_dict)
-    else:
-        G_simple = nx.read_gpickle(str(out_path) + '/ch_DiGraph_bytime_largest.gpickle')
-        print('G DiGraph already exists, loaded')
-
     # LARGEST ISLAND OF GRAPH
-    if os.path.isfile(str(out_path) + "/ch_MultiDiGraph_bytime_largest.shp") == False:
         edges = G.edges(list(largest))
         create_shp(edges, 'ch_MultiDiGraph_bytime_largest')
         # ISOLATED GRAPH
@@ -374,6 +366,8 @@ def parse_network(raw_file, out_path):
             create_shp(iso_edges, 'isolated_graph')
             # export GRAPH to file
             nx.write_gpickle(G_isolated, str(out_path) + "/isolated_graph.gpickle")
+    else:
+        print('G MultiDiGraph and DiGraph files already exists')
 
     print('------------------------------------------------------------------------')
     print('Process finished correctly: files created in out_path')
