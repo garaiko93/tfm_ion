@@ -6,10 +6,11 @@ import networkx as nx
 import igraph as ig
 import copy
 import os
-import osmnx as ox
+# import osmnx as ox
 from shapely.geometry import Point
 import datetime
 from network_graph import check_iso_graph
+from attrdf_manip import take_avg
 
 def straightness(nodes_dict, new_G):
     itime = datetime.datetime.now().time()
@@ -26,7 +27,9 @@ def straightness(nodes_dict, new_G):
     n = 0
     node_straightness = {}
     for i in g.vs['name']:
-        print(n)
+        # print(datetime.datetime.now(), n)
+        if n % 20 == 0:
+            print(datetime.datetime.now(), n)
         i_lonlat = Point(nodes_dict[str(i)])
         dist_comp_list = []
         for j in g.vs['name']:
@@ -54,7 +57,7 @@ def dict_data(dicti, shp_path, attrib_name):
     len_val = len(dicti)
     with open(str(shp_path) + '/attr_' + str(attrib_name) + '.pkl', 'wb') as f:
         pickle.dump(dicti, f, pickle.HIGHEST_PROTOCOL)
-    print(str(attrib_name) + ' (len,min,max,avg): ' +
+    print(datetime.datetime.now(), str(attrib_name) + ' (len,min,max,avg): ' +
           str(len_val) + ', ' + str(min_val) + ', ' + str(max_val) + ', ' + str(avg_val))
     return str([len_val, min_val,max_val,avg_val])
 
@@ -71,7 +74,7 @@ def cut_graph(G,shp_path, graphtype, area, study_area_shp):
 
 # Filter graph and create a new one with nodes only into the shp
 def filter_graph(study_area_dir, graph_file):
-    print('Filtering graph process starts')
+    print(datetime.datetime.now(), 'Filtering graph process starts')
     # IMPORT data: graph and nodes_dict:
     G = nx.read_gpickle(str(graph_file)+'/ch_MultiDiGraph_bytime_largest.gpickle')
     diG = nx.read_gpickle(str(graph_file) + '/ch_DiGraph_bytime_largest.gpickle')
@@ -82,7 +85,7 @@ def filter_graph(study_area_dir, graph_file):
     # Check if .csv with attributes exists:
     if os.path.isfile(str(study_area_dir) + '/' + 'attribute_table.csv') == True:
         attr_df = pd.read_csv(str(study_area_dir) + '/' + 'attribute_table.csv', sep=",", index_col='attributes', dtype=object)
-        print('Attr_df already exists, file loaded')
+        print(datetime.datetime.now(), 'Attr_df already exists, file loaded')
     else:
         attr_df = pd.DataFrame(data=None, columns=['area', 'n_nodes', 'n_edges', 'avg_degree', 'degree_centrality',
                                                    'avg_degree_connectivity', 'avg_edge_density',
@@ -90,49 +93,35 @@ def filter_graph(study_area_dir, graph_file):
                                                    'edge_betweenness','node_closeness', 'node_load_centrality', 'edge_load_centrality',
                                                    'clustering*', 'eccentricity', 'radius', 'diameter', 'center_nodes',
                                                    'periphery_nodes', 'barycenter_nodes'])
-        print('Attributes_table does not exist, attr_df created empty')
+        print(datetime.datetime.now(), 'Attributes_table does not exist, attr_df created empty')
 
     # Check if .csv with attributes exists:
     if os.path.isfile(str(study_area_dir) + '/' + 'stats_table.csv') == True:
         stats_df = pd.read_csv(str(study_area_dir) + '/' + 'stats_table.csv', sep=",", index_col='stats',
                               dtype=object)
-        print('Stats_df already exists, file loaded')
+        print(datetime.datetime.now(), 'Stats_df already exists, file loaded')
     else:
         stats_df = pd.DataFrame(data=None,)
-        print('Stats_table does not exist, stats_df created empty')
+        print(datetime.datetime.now(), 'Stats_table does not exist, stats_df created empty')
     print('----------------------------------------------------------------------')
 
     study_area_list = list(os.walk(study_area_dir))[0][1]
     for area in study_area_list:
-        print(area, datetime.datetime.now().time())
+        print(datetime.datetime.now(), area)
         shp_path = str(study_area_dir) + "/" + area
         study_area_shp = gpd.read_file(str(shp_path) + "/" + area + ".shp").iloc[0]['geometry']
 
-        # Create a buffer area for the shp file to avoid problems at the moment of calculating attributes
-        # and substitute the original shp
-        # buffer = 2000 #in meters
-        # poly_line = LinearRing(study_area_shp.exterior)
-        # poly_line_offset = poly_line.buffer(buffer, resolution=16, join_style=2, mitre_limit=1)
-        # study_area_shp = Polygon(poly_line_offset.exterior)
-        # how to combine polygons from a gdf and save to file the final polygon
-        # m_ggdf = pd.DataFrame(data=None, columns=['id', 'geometry'])
-        # new_row = {'id': 0,
-        #            'geometry': study_area_shp
-        #            }
-        # m_ggdf = m_ggdf.append(new_row, ignore_index=True)
-        # area_gdf = gpd.GeoDataFrame(m_ggdf)
-        # area_gdf.to_file(str(shp_path) + "/" + area + ".shp")
-
         # Check if this area was filtered already by checking existance of done.txt
         if os.path.isfile(str(shp_path) + "/" + area + "_MultiDiGraph_largest.gpickle") == True:
-            print('Graph already exists')
+            print(datetime.datetime.now(), 'Graph already exists')
             attr_df = topology_attributes(study_area_dir, area, attr_df, stats_df, study_area_shp, nodes_dict)
             continue
-
+        print(datetime.datetime.now(), 'Creating graph for area ...')
         new_G = cut_graph(G, shp_path, 'MultiDiGraph', area, study_area_shp)
         new_diG = cut_graph(diG, shp_path, 'DiGraph', area, study_area_shp)
 
         # Create shp file with final graph
+        print(datetime.datetime.now(), 'Creating shp file of network ...')
         df = pd.DataFrame(data=None, columns=['way_id', 'start_node_id', 'end_node_id', 'geometry'])
         for start, end, dup_way in list(new_G.edges):
             new_row = {'way_id': new_G[start][end][dup_way]['way_id'],
@@ -142,7 +131,7 @@ def filter_graph(study_area_dir, graph_file):
                        }
             df = df.append(new_row, ignore_index=True)
         gdf = gpd.GeoDataFrame(df)
-        gdf.to_file(str(shp_path) + "/" + str(area) + "_network" + ".shp")
+        gdf.to_file(str(shp_path) + "/" + str(area) + "_network.shp")
 
         # Calculate attributes for new areas that has now the graph filtered
         attr_df = topology_attributes(study_area_dir, area, attr_df, stats_df, study_area_shp, nodes_dict)
@@ -162,6 +151,7 @@ def topology_attributes(study_area_dir, area, attr_df, stats_df, study_area_shp,
     # check if table is up to date with all attributes:
     attributes = ['n_nodes',
                   'n_edges',
+                  'network_distance',
                   'avg_degree',
                   'avg_neighbor_degree',
                   'degree_centrality',
@@ -187,7 +177,7 @@ def topology_attributes(study_area_dir, area, attr_df, stats_df, study_area_shp,
         if attribute not in attr_df.index:
             s = pd.Series(name=attribute)
             attr_df = attr_df.append(s)
-            print('Added ' +str(attribute) + ' as row to attr_df')
+            print(datetime.datetime.now(), 'Added ' +str(attribute) + ' as row to attr_df')
 
     # create empty row with areas name to add attributes
     if area not in attr_df.columns:
@@ -195,9 +185,9 @@ def topology_attributes(study_area_dir, area, attr_df, stats_df, study_area_shp,
         attr_df = pd.concat([attr_df, new_column], axis=1, sort=False)
         attr_df = attr_df.astype({area: object})
         # attr_df[area].dtype
-        print('Added ' + str(area) + ' as column to attr_df as dtype: ' + str(attr_df[area].dtype))
+        print(datetime.datetime.now(), 'Added ' + str(area) + ' as column to attr_df as dtype: ' + str(attr_df[area].dtype))
     else:
-        print('Area exists in attributes table, checking for additional attributes')
+        print(datetime.datetime.now(), 'Area exists in attributes table, checking for additional attributes')
 
     # ----------------------------------------------------------------------
     # 1. AVG DEGREE OF GRAPH: number of edges adjacent per node
@@ -212,7 +202,7 @@ def topology_attributes(study_area_dir, area, attr_df, stats_df, study_area_shp,
         avg_deg = sum_deg/count_deg
         attr_df.at['avg_degree', area] = avg_deg
         attr_df.to_csv(str(study_area_dir) + "/attribute_table.csv", sep=",", index=True, index_label=['attributes'])
-        print('Average degree(edges adj per node): ' + str(avg_deg))
+        print(datetime.datetime.now(), 'Average degree(edges adj per node): ' + str(avg_deg))
     if pd.isnull(attr_df.loc['avg_neighbor_degree', area]) == True:
         avg_neighbor_degree = nx.average_neighbor_degree(new_G)
         avg_neighbor_degree_data = dict_data(avg_neighbor_degree, shp_path, 'avg_neighbor_degree')
@@ -247,16 +237,17 @@ def topology_attributes(study_area_dir, area, attr_df, stats_df, study_area_shp,
     # 4. AVG EDGE DENSITY: Average edge density of the Graphs
     if pd.isnull(attr_df.loc['avg_edge_density', area]) == True:
         avg_edge_density = nx.density(new_G)
-        print('Average edge density: ' + str(avg_edge_density))
         attr_df.at['avg_edge_density', area] = avg_edge_density
         attr_df.to_csv(str(study_area_dir) + "/attribute_table.csv", sep=",", index=True, index_label=['attributes'])
+        print(datetime.datetime.now(), 'Average edge density: ' + str(avg_edge_density))
+
     # ----------------------------------------------------------------------
     # 5. AVG SHORTEST PATH LENGTH (WEIGHTED BY TIME):
     if pd.isnull(attr_df.loc['avg_shortest_path_duration', area]) == True:
         avg_spl = nx.average_shortest_path_length(new_G, weight='time')
-        print('Average shortest path length (duration in seconds): ' + str(avg_spl))
         attr_df.at['avg_shortest_path_duration', area] = avg_spl
         attr_df.to_csv(str(study_area_dir) + "/attribute_table.csv", sep=",", index=True, index_label=['attributes'])
+        print(datetime.datetime.now(), 'Average shortest path length (duration in seconds): ' + str(avg_spl))
     # ----------------------------------------------------------------------
     # 6. BETWEENNESS CENTRALITY: how many times a node or edge is passed for the sp
     # nodes betweenness
@@ -282,11 +273,11 @@ def topology_attributes(study_area_dir, area, attr_df, stats_df, study_area_shp,
 
     # ----------------------------------------------------------------------
     # 8. STRAIGHTNESS CENTRALITY: compares the shortest path with the euclidean distance of each pair of nodes
-    if pd.isnull(attr_df.loc['node_straightness', area]) == True:
-        node_straightness = straightness(nodes_dict, new_G)
-        node_straightness_data = dict_data(node_straightness, shp_path, 'node_straightness')
-        attr_df.at['node_straightness', area] = node_straightness_data
-        attr_df.to_csv(str(study_area_dir) + "/attribute_table.csv", sep=",", index=True, index_label=['attributes'])
+    # if pd.isnull(attr_df.loc['node_straightness', area]) == True:
+    #     node_straightness = straightness(nodes_dict, new_G)
+    #     node_straightness_data = dict_data(node_straightness, shp_path, 'node_straightness')
+    #     attr_df.at['node_straightness', area] = node_straightness_data
+    #     attr_df.to_csv(str(study_area_dir) + "/attribute_table.csv", sep=",", index=True, index_label=['attributes'])
 
     # ----------------------------------------------------------------------
     # 8. LOAD CENTRALITY:counts the number of shortest paths which cross each node/edge
@@ -329,33 +320,43 @@ def topology_attributes(study_area_dir, area, attr_df, stats_df, study_area_shp,
         attr_df.to_csv(str(study_area_dir) + "/attribute_table.csv", sep=",", index=True, index_label=['attributes'])
 
     # Center: center is the set of nodes with eccentricity equal to radius.
-    if pd.isnull(attr_df.loc['center_nodes', area]) == True:
-        center = nx.algorithms.distance_measures.center(new_G)
-        attr_df.at['center_nodes', area] = center
-        print('Center nodes: ' + str(center))
-        attr_df.to_csv(str(study_area_dir) + "/attribute_table.csv", sep=",", index=True, index_label=['attributes'])
-    # Periphery: set of nodes with eccentricity equal to the diameter.
-    if pd.isnull(attr_df.loc['periphery_nodes', area]) == True:
-        periphery = nx.algorithms.distance_measures.periphery(new_G)
-        attr_df.at['periphery_nodes', area] = periphery
-        print('Periphery nodes: ' + str(periphery))
-        attr_df.to_csv(str(study_area_dir) + "/attribute_table.csv", sep=",", index=True, index_label=['attributes'])
-    # Baryecnter: subgraph that minimizes the function sum(w(u,v))
-    if pd.isnull(attr_df.loc['barycenter_nodes', area]) == True:
-        barycenter = nx.algorithms.distance_measures.barycenter(new_G, weight='time')
-        attr_df.at['barycenter_nodes', area] = barycenter
-        print('Baryenter nodes: ' + str(barycenter))
+    # if pd.isnull(attr_df.loc['center_nodes', area]) == True:
+    #     center = nx.algorithms.distance_measures.center(new_G)
+    #     attr_df.at['center_nodes', area] = center
+    #     print(datetime.datetime.now(), 'Center nodes: ' + str(center))
+    #     attr_df.to_csv(str(study_area_dir) + "/attribute_table.csv", sep=",", index=True, index_label=['attributes'])
+    # # Periphery: set of nodes with eccentricity equal to the diameter.
+    # if pd.isnull(attr_df.loc['periphery_nodes', area]) == True:
+    #     periphery = nx.algorithms.distance_measures.periphery(new_G)
+    #     attr_df.at['periphery_nodes', area] = periphery
+    #     print(datetime.datetime.now(), 'Periphery nodes: ' + str(periphery))
+    #     attr_df.to_csv(str(study_area_dir) + "/attribute_table.csv", sep=",", index=True, index_label=['attributes'])
+    # # Baryecnter: subgraph that minimizes the function sum(w(u,v))
+    # if pd.isnull(attr_df.loc['barycenter_nodes', area]) == True:
+    #     barycenter = nx.algorithms.distance_measures.barycenter(new_G, weight='time')
+    #     attr_df.at['barycenter_nodes', area] = barycenter
+    #     print(datetime.datetime.now(), 'Baryenter nodes: ' + str(barycenter))
+    #     attr_df.to_csv(str(study_area_dir) + "/attribute_table.csv", sep=",", index=True, index_label=['attributes'])
+
+    # 'network_distance'
+    if pd.isnull(attr_df.loc['network_distance', area]) == True:
+        nodes_list = new_G.edges.data('length', default=1)
+        total_len = 0
+        for nod in nodes_list:
+            total_len += nod[2]
+        attr_df.at['network_distance', area] = total_len
+        print(datetime.datetime.now(), 'Total network distance: ' + str(total_len))
         attr_df.to_csv(str(study_area_dir) + "/attribute_table.csv", sep=",", index=True, index_label=['attributes'])
 
     # ----------------------------------------------------------------------
     # 11. OSMnx stats module
-    if os.path.isfile(str(shp_path) + '/' + 'stats_basic.pkl') == False:
-        print('Calculating basic_stats')
-        new_G.graph['crs'] = 'epsg:2056'
-        new_G.graph['name'] = str(area) + '_MultiDiGraph'
-        basic_stats = ox.basic_stats(new_G, area=study_area_shp.area, clean_intersects=True, tolerance=15, circuity_dist='euclidean')
-        with open(str(shp_path) + '/stats_basic.pkl', 'wb') as f:
-            pickle.dump(basic_stats, f, pickle.HIGHEST_PROTOCOL)
+    # if os.path.isfile(str(shp_path) + '/' + 'stats_basic.pkl') == False:
+    #     print('Calculating basic_stats')
+    #     new_G.graph['crs'] = 'epsg:2056'
+    #     new_G.graph['name'] = str(area) + '_MultiDiGraph'
+    #     basic_stats = ox.basic_stats(new_G, area=study_area_shp.area, clean_intersects=True, tolerance=15, circuity_dist='euclidean')
+    #     with open(str(shp_path) + '/stats_basic.pkl', 'wb') as f:
+    #         pickle.dump(basic_stats, f, pickle.HIGHEST_PROTOCOL)
     # if os.path.isfile(str(study_area_dir) + '/' + 'stats_extended.pkl') == False:
         # print('Calculating extended_stats')
         # extended_stats = ox.extended_stats(new_G, connectivity=True, anc=True, ecc=True, bc=True, cc=True)
@@ -363,9 +364,10 @@ def topology_attributes(study_area_dir, area, attr_df, stats_df, study_area_shp,
         #     pickle.dump(extended_stats, f, pickle.HIGHEST_PROTOCOL)
 
     # Create shp file with final graph
+    attr_df, attr_df_avg = take_avg(attr_df)
     # attr_df.to_csv(str(study_area_dir) + "/attribute_table.csv", sep=",", index=True, index_label=['attributes'])
     # stats_df.to_csv(str(study_area_dir) + "/stats_table.csv", sep=",", index=True, index_label=['stats'])
-    print('Attributes saved in attribute_table succesfully')
+    print(datetime.datetime.now(), 'Attributes saved in attribute_table succesfully')
     print('----------------------------------------------------------------------')
     return attr_df
 

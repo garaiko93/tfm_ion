@@ -1,17 +1,12 @@
 # import sys
 # sys.path.insert(0, 'codes')
 import datetime
-print(datetime.datetime.now().time())
-from network_graph import parse_network
+import argparse
+# from network_graph import parse_network
 from graph_analysis import filter_graph
-from population_parser import population_parser_line
+# from population_parser import population_parser_line
 
-# from optparse import OptionParser
-# parser = OptionParser()
-# parser.add_option("--study-areas", dest="study_areas", help="study areas")
-# parser.add_option("--network-graphs", dest="network_graphs", help="network_graphs")
-#
-# (options, args) = parser.parse_args()
+print(datetime.datetime.now(), 'Main script begins ...')
 
 # -------------------------------------------------------------------------------------------------------------
 #  CREATE GRAPH FROM NETWORK XML FILE
@@ -33,8 +28,8 @@ from population_parser import population_parser_line
 # Needed arguments: 1. Directory with name to the network compressed XML file (i.e.: r"C:\Users\...\network.xml.gz")
 #                   2. Output directory for all new files created (i.e.: r"C:\Users\...\network")
 # '''
-parse_network(r"C:\Users\Ion\TFM\data\scenarios\switzerland_1pm\switzerland_network.xml.gz",
-              r"C:\Users\Ion\TFM\data\network_graphs\test")
+# parse_network(r"C:\Users\Ion\TFM\data\scenarios\switzerland_1pm\switzerland_network.xml.gz",
+#               r"C:\Users\Ion\TFM\data\network_graphs\test")
 
 # -------------------------------------------------------------------------------------------------------------
 # PARSE AND CREATE POPULATION DATABASE FROM XML FILE
@@ -66,13 +61,14 @@ parse_network(r"C:\Users\Ion\TFM\data\scenarios\switzerland_1pm\switzerland_netw
 #                   2. Directory of out_path from create_graph() where graph and nodes_dict files are
 #                   (i.e.: r"C:\Users\...\network\graph.gpickle")
 # '''
-# filter_graph(r"C:\Users\Ion\TFM\data\study_areas",
-#              r"C:\Users\Ion\TFM\data\network_graphs")
+filter_graph(r"C:\Users\Ion\TFM\data\study_areas",
+             r"C:\Users\Ion\TFM\data\network_graphs")
 
-# print(options.study_areas)
-# print(options.network_graphs)
-#
-#
-# filter_graph(options.study_areas, options.network_graphs)
+# parser = argparse.ArgumentParser(description='Cut and analyse a graph for a certain input area.')
+# parser.add_argument('--study-areas', dest="study_areas", help='path to study areas')
+# parser.add_argument('--network-graphs', dest="network_graphs", help="path to network_graphs")
+# args = parser.parse_args()
+# filter_graph(args.study_areas, args.network_graphs)
 
+# -------------------------------------------------------------------------------------------------------------
 print(datetime.datetime.now().time())
