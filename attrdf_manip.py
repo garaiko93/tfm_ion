@@ -1,15 +1,15 @@
 import matplotlib.pyplot as plt
 import pandas as pd
-x= [1,2,3,4,5,6,7,8,9]
-y= [0.1,0.2,0.3,0.5,0.6,0.65,0.8,1.3,1.5]
-plt.plot(x,y)
+# x= [1,2,3,4,5,6,7,8,9]
+# y= [0.1,0.2,0.3,0.5,0.6,0.65,0.8,1.3,1.5]
+# plt.plot(x,y)
 
 # change table attributes, to avg values
-study_area_dir= r"C:\Users\Ion\TFM\data\study_areas"
-attr_df = pd.read_csv(str(study_area_dir) + '/' + 'attribute_table.csv', sep=",", index_col='attributes', dtype=object)
+# study_area_dir= r"C:\Users\Ion\TFM\data\study_areas"
+# attr_df = pd.read_csv(str(study_area_dir) + '/' + 'attribute_table.csv', sep=",", index_col='attributes', dtype=object)
 
 # this takes from every cell (if it is a list) the value in 4th position which corresponds to the avg value
-def take_avg(attr_df):
+def take_avg(attr_df, study_area_dir):
     # in case important columns are converted to str, here are back to float
     index_list = ['n_nodes', 'n_edges', 'network_distance', 'area']
     for column in attr_df.columns:
@@ -18,7 +18,8 @@ def take_avg(attr_df):
             attr_df.at[index, column] = variable
 
     # reindex dataframe
-    new_index = ['n_nodes', 'n_edges', 'network_distance', 'area', 'avg_degree', 'degree_centrality',
+    new_index = ['n_nodes', 'n_edges', 'network_distance', 'area', 'population', 'trips',
+                 'avg_degree', 'degree_centrality',
                  'avg_degree_connectivity', 'avg_edge_density',
                  'avg_shortest_path_duration', 'node_betweenness*', 'edge_betweenness',
                  'node_load_centrality', 'edge_load_centrality', 'clustering*',
@@ -53,6 +54,6 @@ def take_avg(attr_df):
     return attr_df, attr_df_avg
 
 
-attr_df, attr_df_avg = take_avg(attr_df)
+# attr_df, attr_df_avg = take_avg(attr_df)
 
 

@@ -1,10 +1,11 @@
 # import sys
 # sys.path.insert(0, 'codes')
 import datetime
+import os
 import argparse
 # from network_graph import parse_network
 from graph_analysis import filter_graph
-# from population_parser import population_parser_line
+from population_parser import population_parser_line
 
 print(datetime.datetime.now(), 'Main script begins ...')
 
@@ -45,10 +46,18 @@ print(datetime.datetime.now(), 'Main script begins ...')
 #                   3. Scenario (i.e. 'switzerland_1pm', 'switzerland_1pct', 'switzerland_10pct'
 # '''
 # pop_list = ['switzerland_1pm', 'switzerland_1pct', 'switzerland_10pct']
-# for pop in pop_list:
-#     population_parser_line(r'C:\Users\Ion\TFM\data\scenarios',
-#                            r'C:\Users\Ion\TFM\data\population_db/test',
-#                            pop)
+    # population_parser_line(r'C:\Users\Ion\TFM\data\scenarios',
+    #                        r'C:\Users\Ion\TFM\data\population_db/test',
+    #                        pop)
+
+# area_list = [dI for dI in os.listdir(r'C:\Users\Ion\TFM\data\study_areas') if
+#              os.path.isdir(os.path.join(r'C:\Users\Ion\TFM\data\study_areas', dI))]
+# for area in area_list:
+#     population_parser_line(r'C:/Users/Ion/TFM/data/study_areas',
+#                            area)
+    # population_parser_line(r'C:/Users/Ion/TFM/data/study_areas/' + str(area) + '/' + str(area) + '_population.xml.gz',
+    #                        r'C:/Users/Ion/TFM/data/study_areas/' + str(area) + '/population_db',
+    #                        r'C:/Users/Ion/TFM/data/study_areas')
 
 # -------------------------------------------------------------------------------------------------------------
 # CREATE AND ANALYSE EVERY STUDY AREA
@@ -71,4 +80,4 @@ filter_graph(r"C:\Users\Ion\TFM\data\study_areas",
 # filter_graph(args.study_areas, args.network_graphs)
 
 # -------------------------------------------------------------------------------------------------------------
-print(datetime.datetime.now().time())
+print(datetime.datetime.now(), 'Main script finishes ...')

@@ -6,14 +6,14 @@ import networkx as nx
 import igraph as ig
 import copy
 import os
-# import osmnx as ox
+import osmnx as ox
 from shapely.geometry import Point
 import datetime
 from network_graph import check_iso_graph
 from attrdf_manip import take_avg
 
 def straightness(nodes_dict, new_G):
-    itime = datetime.datetime.now().time()
+    print(datetime.datetime.now(), 'Calculating node_straightness of graph ...')
     # create igraph with networkx graph info
     g = ig.Graph(directed=True)
     for node in new_G.nodes():
@@ -46,8 +46,6 @@ def straightness(nodes_dict, new_G):
         straightness = (1 / (len(g.vs) - 1)) * sum(dist_comp_list)
         node_straightness[i] = straightness
         n += 1
-    print(itime)
-    print(datetime.datetime.now().time())
     return node_straightness
 
 def dict_data(dicti, shp_path, attrib_name):
@@ -87,12 +85,14 @@ def filter_graph(study_area_dir, graph_file):
         attr_df = pd.read_csv(str(study_area_dir) + '/' + 'attribute_table.csv', sep=",", index_col='attributes', dtype=object)
         print(datetime.datetime.now(), 'Attr_df already exists, file loaded')
     else:
-        attr_df = pd.DataFrame(data=None, columns=['area', 'n_nodes', 'n_edges', 'avg_degree', 'degree_centrality',
-                                                   'avg_degree_connectivity', 'avg_edge_density',
-                                                   'avg_shortest_path_duration', 'node_betweenness*',
-                                                   'edge_betweenness','node_closeness', 'node_load_centrality', 'edge_load_centrality',
-                                                   'clustering*', 'eccentricity', 'radius', 'diameter', 'center_nodes',
-                                                   'periphery_nodes', 'barycenter_nodes'])
+        attr_df = pd.DataFrame(data=None, columns=['n_nodes', 'n_edges', 'network_distance', 'area', 'population', 'trips',
+                                                   'avg_degree', 'degree_centrality',
+                 'avg_degree_connectivity', 'avg_edge_density',
+                 'avg_shortest_path_duration', 'node_betweenness*', 'edge_betweenness',
+                 'node_load_centrality', 'edge_load_centrality', 'clustering*',
+                 'eccentricity', 'radius', 'diameter', 'center_nodes', 'periphery_nodes',
+                 'barycenter_nodes', 'node_closeness*', 'avg_neighbor_degree',
+                 'node_straightness', 'clustering_w*'])
         print(datetime.datetime.now(), 'Attributes_table does not exist, attr_df created empty')
 
     # Check if .csv with attributes exists:
@@ -136,6 +136,7 @@ def filter_graph(study_area_dir, graph_file):
         # Calculate attributes for new areas that has now the graph filtered
         attr_df = topology_attributes(study_area_dir, area, attr_df, stats_df, study_area_shp, nodes_dict)
         print('----------------------------------------------------------------------')
+    attr_df, attr_df_avg = take_avg(attr_df, study_area_dir)
     print('----------------------------------------------------------------------')
     print('Process finished correctly: shp and graph files created in destination')
 
@@ -152,6 +153,9 @@ def topology_attributes(study_area_dir, area, attr_df, stats_df, study_area_shp,
     attributes = ['n_nodes',
                   'n_edges',
                   'network_distance',
+                  'area',
+                  'population',
+                  'trips',
                   'avg_degree',
                   'avg_neighbor_degree',
                   'degree_centrality',
@@ -184,11 +188,16 @@ def topology_attributes(study_area_dir, area, attr_df, stats_df, study_area_shp,
         new_column = pd.DataFrame({area: [len(list(new_G)), len(new_G.edges()), study_area_shp.area]}, index=['n_nodes', 'n_edges', 'area'])
         attr_df = pd.concat([attr_df, new_column], axis=1, sort=False)
         attr_df = attr_df.astype({area: object})
-        # attr_df[area].dtype
         print(datetime.datetime.now(), 'Added ' + str(area) + ' as column to attr_df as dtype: ' + str(attr_df[area].dtype))
     else:
         print(datetime.datetime.now(), 'Area exists in attributes table, checking for additional attributes')
 
+    # ----------------------------------------------------------------------
+    # 0.Basic information of study area
+    if pd.isnull(attr_df.loc['area', area]) == True:
+        attr_df.at['n_nodes', area] = len(list(new_G))
+        attr_df.at['n_edges', area] = len(new_G.edges())
+        attr_df.at['area', area] = study_area_shp.area
     # ----------------------------------------------------------------------
     # 1. AVG DEGREE OF GRAPH: number of edges adjacent per node
     if pd.isnull(attr_df.loc['avg_degree', area]) == True:
@@ -273,11 +282,11 @@ def topology_attributes(study_area_dir, area, attr_df, stats_df, study_area_shp,
 
     # ----------------------------------------------------------------------
     # 8. STRAIGHTNESS CENTRALITY: compares the shortest path with the euclidean distance of each pair of nodes
-    # if pd.isnull(attr_df.loc['node_straightness', area]) == True:
-    #     node_straightness = straightness(nodes_dict, new_G)
-    #     node_straightness_data = dict_data(node_straightness, shp_path, 'node_straightness')
-    #     attr_df.at['node_straightness', area] = node_straightness_data
-    #     attr_df.to_csv(str(study_area_dir) + "/attribute_table.csv", sep=",", index=True, index_label=['attributes'])
+    if pd.isnull(attr_df.loc['node_straightness', area]) == True:
+        node_straightness = straightness(nodes_dict, new_G)
+        node_straightness_data = dict_data(node_straightness, shp_path, 'node_straightness')
+        attr_df.at['node_straightness', area] = node_straightness_data
+        attr_df.to_csv(str(study_area_dir) + "/attribute_table.csv", sep=",", index=True, index_label=['attributes'])
 
     # ----------------------------------------------------------------------
     # 8. LOAD CENTRALITY:counts the number of shortest paths which cross each node/edge
@@ -320,23 +329,23 @@ def topology_attributes(study_area_dir, area, attr_df, stats_df, study_area_shp,
         attr_df.to_csv(str(study_area_dir) + "/attribute_table.csv", sep=",", index=True, index_label=['attributes'])
 
     # Center: center is the set of nodes with eccentricity equal to radius.
-    # if pd.isnull(attr_df.loc['center_nodes', area]) == True:
-    #     center = nx.algorithms.distance_measures.center(new_G)
-    #     attr_df.at['center_nodes', area] = center
-    #     print(datetime.datetime.now(), 'Center nodes: ' + str(center))
-    #     attr_df.to_csv(str(study_area_dir) + "/attribute_table.csv", sep=",", index=True, index_label=['attributes'])
-    # # Periphery: set of nodes with eccentricity equal to the diameter.
-    # if pd.isnull(attr_df.loc['periphery_nodes', area]) == True:
-    #     periphery = nx.algorithms.distance_measures.periphery(new_G)
-    #     attr_df.at['periphery_nodes', area] = periphery
-    #     print(datetime.datetime.now(), 'Periphery nodes: ' + str(periphery))
-    #     attr_df.to_csv(str(study_area_dir) + "/attribute_table.csv", sep=",", index=True, index_label=['attributes'])
-    # # Baryecnter: subgraph that minimizes the function sum(w(u,v))
-    # if pd.isnull(attr_df.loc['barycenter_nodes', area]) == True:
-    #     barycenter = nx.algorithms.distance_measures.barycenter(new_G, weight='time')
-    #     attr_df.at['barycenter_nodes', area] = barycenter
-    #     print(datetime.datetime.now(), 'Baryenter nodes: ' + str(barycenter))
-    #     attr_df.to_csv(str(study_area_dir) + "/attribute_table.csv", sep=",", index=True, index_label=['attributes'])
+    if pd.isnull(attr_df.loc['center_nodes', area]) == True:
+        center = nx.algorithms.distance_measures.center(new_G)
+        attr_df.at['center_nodes', area] = center
+        print(datetime.datetime.now(), 'Center nodes: ' + str(center))
+        attr_df.to_csv(str(study_area_dir) + "/attribute_table.csv", sep=",", index=True, index_label=['attributes'])
+    # Periphery: set of nodes with eccentricity equal to the diameter.
+    if pd.isnull(attr_df.loc['periphery_nodes', area]) == True:
+        periphery = nx.algorithms.distance_measures.periphery(new_G)
+        attr_df.at['periphery_nodes', area] = periphery
+        print(datetime.datetime.now(), 'Periphery nodes: ' + str(periphery))
+        attr_df.to_csv(str(study_area_dir) + "/attribute_table.csv", sep=",", index=True, index_label=['attributes'])
+    # Baryecnter: subgraph that minimizes the function sum(w(u,v))
+    if pd.isnull(attr_df.loc['barycenter_nodes', area]) == True:
+        barycenter = nx.algorithms.distance_measures.barycenter(new_G, weight='time')
+        attr_df.at['barycenter_nodes', area] = barycenter
+        print(datetime.datetime.now(), 'Baryenter nodes: ' + str(barycenter))
+        attr_df.to_csv(str(study_area_dir) + "/attribute_table.csv", sep=",", index=True, index_label=['attributes'])
 
     # 'network_distance'
     if pd.isnull(attr_df.loc['network_distance', area]) == True:
@@ -350,13 +359,13 @@ def topology_attributes(study_area_dir, area, attr_df, stats_df, study_area_shp,
 
     # ----------------------------------------------------------------------
     # 11. OSMnx stats module
-    # if os.path.isfile(str(shp_path) + '/' + 'stats_basic.pkl') == False:
-    #     print('Calculating basic_stats')
-    #     new_G.graph['crs'] = 'epsg:2056'
-    #     new_G.graph['name'] = str(area) + '_MultiDiGraph'
-    #     basic_stats = ox.basic_stats(new_G, area=study_area_shp.area, clean_intersects=True, tolerance=15, circuity_dist='euclidean')
-    #     with open(str(shp_path) + '/stats_basic.pkl', 'wb') as f:
-    #         pickle.dump(basic_stats, f, pickle.HIGHEST_PROTOCOL)
+    if os.path.isfile(str(shp_path) + '/' + 'stats_basic.pkl') == False:
+        print('Calculating basic_stats')
+        new_G.graph['crs'] = 'epsg:2056'
+        new_G.graph['name'] = str(area) + '_MultiDiGraph'
+        basic_stats = ox.basic_stats(new_G, area=study_area_shp.area, clean_intersects=True, tolerance=15, circuity_dist='euclidean')
+        with open(str(shp_path) + '/stats_basic.pkl', 'wb') as f:
+            pickle.dump(basic_stats, f, pickle.HIGHEST_PROTOCOL)
     # if os.path.isfile(str(study_area_dir) + '/' + 'stats_extended.pkl') == False:
         # print('Calculating extended_stats')
         # extended_stats = ox.extended_stats(new_G, connectivity=True, anc=True, ecc=True, bc=True, cc=True)
@@ -364,10 +373,10 @@ def topology_attributes(study_area_dir, area, attr_df, stats_df, study_area_shp,
         #     pickle.dump(extended_stats, f, pickle.HIGHEST_PROTOCOL)
 
     # Create shp file with final graph
-    attr_df, attr_df_avg = take_avg(attr_df)
+    # attr_df, attr_df_avg = take_avg(attr_df, study_area_dir)
     # attr_df.to_csv(str(study_area_dir) + "/attribute_table.csv", sep=",", index=True, index_label=['attributes'])
     # stats_df.to_csv(str(study_area_dir) + "/stats_table.csv", sep=",", index=True, index_label=['stats'])
-    print(datetime.datetime.now(), 'Attributes saved in attribute_table succesfully')
+    print(datetime.datetime.now(), 'Attributes saved in attribute_table successfully')
     print('----------------------------------------------------------------------')
     return attr_df
 

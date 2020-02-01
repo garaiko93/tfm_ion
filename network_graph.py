@@ -7,12 +7,13 @@ import shapely.geometry as geo
 import networkx as nx
 import copy
 import os
+import datetime
 from shutil import copyfile
 from progressbar import Percentage, ProgressBar, Bar, ETA
 
 # Identify the largest component and the "isolated" nodes
 def check_iso_graph(G,out_path,filename):
-    print('Original ' + str(filename) + ' has: ' + str(
+    print(datetime.datetime.now(), 'Original ' + str(filename) + ' has: ' + str(
         len([len(c) for c in sorted(nx.strongly_connected_components(G), key=len, reverse=True)])) + ' island with '
           + str(G.number_of_nodes()) + '/' + str(G.number_of_edges()) + ' (Nnodes/Nedges)')
 
@@ -33,10 +34,10 @@ def check_iso_graph(G,out_path,filename):
         # export final graph only containing largest island from the network to file
         nx.write_gpickle(G, str(out_path) + "/" + str(filename) + "_largest.gpickle")
 
-        print('N isolated nodes: ' + str(num_isolated))
-        print('10 largest networks (nodes): ' + str(longest_networks))
+        print(datetime.datetime.now(), 'N isolated nodes: ' + str(num_isolated))
+        print(datetime.datetime.now(), '10 largest networks (nodes): ' + str(longest_networks))
 
-        print('Resulting ' + str(filename) + ' has: ' + str(
+        print(datetime.datetime.now(), 'Resulting ' + str(filename) + ' has: ' + str(
             len([len(c) for c in sorted(nx.strongly_connected_components(G), key=len, reverse=True)])) + ' island with '
               + str(G.number_of_nodes()) + '/' + str(G.number_of_edges()) + ' (Nnodes/Nedges)')
     else:

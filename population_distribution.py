@@ -8,15 +8,19 @@ import os
 from pyproj import Transformer
 from shapely.ops import cascaded_union
 
-def create_distrib(study_area_shp, fac_df, grid_size):
-    drop_rows = []
-    for index, row in fac_df.iterrows():
-        point = Point(row['x'], row['y'])
-        in_area = study_area_shp.contains(point)
-        if not in_area:
-            drop_rows.append(index)
-    area_fac = fac_df.drop(drop_rows, axis=0)
-    print(len(fac_df), len(area_fac))
+def create_distrib(study_area_dir, grid_size, area):
+    area_path = str(study_area_dir) + "/" + str(area)
+    study_area_shp = gpd.read_file(str(area_path) + "/" + str(area) + ".shp").iloc[0]['geometry']
+    area_fac = pd.read_csv(str(area_path) + "/population_db/loc_home.csv")
+
+    # drop_rows = []
+    # for index, row in fac_df.iterrows():
+    #     point = Point(row['x'], row['y'])
+    #     in_area = study_area_shp.contains(point)
+    #     if not in_area:
+    #         drop_rows.append(index)
+    # area_fac = fac_df.drop(drop_rows, axis=0)
+    # print(len(fac_df), len(area_fac))
 
     # Found borders of the grid in 4 cardinal points
     min_x = area_fac['x'].min()
@@ -74,20 +78,23 @@ def create_distrib(study_area_shp, fac_df, grid_size):
             if m[0][i][j] == 0: continue
 
             # transform coordinates system from epsg 2056 to epsg 4326
-            transformer = Transformer.from_crs(2056, 4326)
-            for pt in transformer.itransform(points):
-                points_4326.append((pt[1],pt[0]))
-            poly_4326 = Polygon(points_4326)
+            # transformer = Transformer.from_crs(2056, 4326)
+            # for pt in transformer.itransform(points):
+            #     points_4326.append((pt[1],pt[0]))
+            # poly_4326 = Polygon(points_4326)
+            poly_2056 = Polygon(points)
             # value = m[0][i][j]
             new_row = {'id': str(id),
                        'value': value,
-                       'geometry': poly_4326
+                       'geometry': poly_2056
                        }
             m_df = m_df.append(new_row, ignore_index=True)
             id += 1
 
     m_gdf = gpd.GeoDataFrame(m_df)
-    m_gdf.to_file(r"C:\Users\Ion\TFM\data\study_areas\zurich_small/output.json", driver="GeoJSON")
+    m_gdf.to_file(r"C:/Users/Ion/TFM/data/study_areas/zurich_kreis/" + str(area) + "pop_distribution_" +
+                  str(grid_size) + "gs.shp")
+    # m_gdf.to_file(r"C:\Users\Ion\TFM\data\study_areas\zurich_kreis/output.json", driver="GeoJSON")
 
     # create shp file with points in area
     # point_list = []
@@ -100,38 +107,32 @@ def create_distrib(study_area_shp, fac_df, grid_size):
     # area_gdf.to_file(r"C:\Users\Ion\TFM\data\study_areas\zurich_small/home_points.shp")
 
     # Initialize the map:
-    map_name = str(area) + '_' + str(pct) + '_' + str(grid_size) + 'gs'
-    map2 = folium.Map(location=[47.376155, 8.531508], zoom_start=12)
-    # Add the color for the chloropleth:
-    folium.Choropleth(
-        geo_data=r"C:\Users\Ion\TFM\data\study_areas\zurich_small/output.json",
-        # geo_data=m_gdf[['id', 'geometry']],
-        name='choropleth',
-        data=m_df,
-        columns=['id', 'value'],
-        key_on='feature.properties.id',
-        fill_color='YlOrRd',
-        fill_opacity=0.7,
-        line_opacity=0.2,
-        legend_name=map_name
-    ).add_to(map2)
-    # Save to html
-    map2.save(os.path.join(r"C:\Users\Ion\TFM\data\study_areas\zurich_small/", str(map_name) + '.html'))
+    # map_name = str(area) + '_' + str(pct) + '_' + str(grid_size) + 'gs'
+    # map2 = folium.Map(location=[47.376155, 8.531508], zoom_start=12)
+    # # Add the color for the chloropleth:
+    # folium.Choropleth(
+    #     geo_data=r"C:\Users\Ion\TFM\data\study_areas\zurich_kreis/output.json",
+    #     # geo_data=m_gdf[['id', 'geometry']],
+    #     name='choropleth',
+    #     data=m_df,
+    #     columns=['id', 'value'],
+    #     key_on='feature.properties.id',
+    #     fill_color='YlOrRd',
+    #     fill_opacity=0.7,
+    #     line_opacity=0.2,
+    #     legend_name=map_name
+    # ).add_to(map2)
+    # # Save to html
+    # # map2.save(os.path.join(r"C:\Users\Ion\TFM\data\study_areas\zurich_small/", str(map_name) + '.html'))
+    # map2.save(os.path.join(r"C:\Users\Ion\TFM\data\study_areas\zurich_kreis/", str(map_name) + '1.shp'))
     return m
 
-area = "zurich_small"
-facility = "home"
-pct = "1pct"
-population_path = r"C:/Users/Ion/TFM/data/population_db/test/switzerland_" + str(pct)
-shp_path = r"C:/Users/Ion/TFM/data/study_areas" + "/" + str(area)
-study_area_gdf = gpd.read_file(str(shp_path) + "/" + area + ".shp")
-study_area_gdf = gpd.read_file(str(shp_path) + "/" + area + ".shp").iloc[1]['geometry']
-fac_df = pd.read_csv(str(population_path) + "/loc_" + str(facility) + ".csv")
-# grid_size = int(input('Enter grid size in meters: '))
-grid_size = 1000
-m = create_distrib(study_area_shp, fac_df, grid_size)
+
+study_area_dir = r"C:/Users/Ion/TFM/data/study_areas"
+m = create_distrib(study_area_dir, 200, 'zurich_kreis')
 
 
+# study_area_gdf.iloc[0]['geometry']
 # code finishes here
 # ------------------------------------------
 # OTHER WAYS TO PLOT THE MAP IN THE BACKGROUND
