@@ -138,7 +138,7 @@ def filter_graph(study_area_dir, graph_file):
         print('----------------------------------------------------------------------')
     attr_df, attr_df_avg = take_avg(attr_df, study_area_dir)
     print('----------------------------------------------------------------------')
-    print('Process finished correctly: shp and graph files created in destination')
+    print(datetime.datetime.now(), 'Process finished correctly: shp and graph files created in destination')
 
 # NETWORK ANALYSIS ATTRIBUTES
 def topology_attributes(study_area_dir, area, attr_df, stats_df, study_area_shp, nodes_dict):

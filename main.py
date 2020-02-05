@@ -80,4 +80,4 @@ filter_graph(r"C:\Users\Ion\TFM\data\study_areas",
 # filter_graph(args.study_areas, args.network_graphs)
 
 # -------------------------------------------------------------------------------------------------------------
-print(datetime.datetime.now(), 'Main script finishes ...')
+print(datetime.datetime.now(), 'Main script closing ...')
