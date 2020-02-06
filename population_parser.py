@@ -20,7 +20,7 @@ def extract_activity(activity,from_to):
         act_dict['ov_guteklasse'] = ''
     return act_dict
 
-def export_dict(dict,file_name,out_path, file_number):
+def export_dict(dict, file_name, out_path, file_number):
     # EXPORT dicts TO FILEs
     with open(str(out_path) + '/' + str(file_name) + '_' + str(file_number) + '.pkl', 'wb') as f:
         pickle.dump(dict, f, pickle.HIGHEST_PROTOCOL)
@@ -136,14 +136,23 @@ def population_parser_etree(pop_folder,out_folder,scenario):
 
 
 # def population_parser_line(pop_file, out_path, study_area_dir, area):
-def population_parser_line(study_area_dir, area):
-    # pop_folder=r'C:\Users\Ion\TFM\data\scenarios'
-    # out_folder=r'C:\Users\Ion\TFM\data\population_db/test'
-    # scenario='switzerland_10pct'
+def population_parser_line(scenario_dir, study_area_dir, scenario, area):
+    # study_area_dir = r'C:/Users/Ion/TFM/data/study_areas'
+    # pop_folder = r'C:\Users\Ion\TFM\data\scenarios'
+    # out_folder = r'C:\Users\Ion\TFM\data\population_db/test'
+    # scenario = 'switzerland_1pm'
+    # area = None
+
     # define path and file variables
-    print(area)
-    out_path = r'C:/Users/Ion/TFM/data/study_areas/' + str(area) + '/population_db'
-    pop_file = r'C:/Users/Ion/TFM/data/study_areas/' + str(area) + '/' + str(area) + '_population.xml.gz'
+    if area:
+        print(area)
+        out_path = str(study_area_dir) + '/' + str(area) + '/population_db'
+        pop_file = str(study_area_dir) + '/' + str(area) + '/' + str(area) + '_population.xml.gz'
+    elif scenario:
+        print(scenario)
+        out_path = str(scenario_dir) + '/' + str(scenario) + '/population_db'
+        pop_file = str(scenario_dir) + '/' + str(scenario) + '/switzerland_population.xml.gz'
+
     # check if out directory exists and create it if not
     if not os.path.exists(str(out_path)):
         os.makedirs(str(out_path))
@@ -156,6 +165,7 @@ def population_parser_line(study_area_dir, area):
 
     population_attributes = {}
     population_plans = {}
+    facility_dict = {}
     attribute_check = 0
     plan_check = 0
     activity_check = 0
@@ -197,22 +207,40 @@ def population_parser_line(study_area_dir, area):
                 if plan_check == 1:
                     if b"<activity " in line:
                         # m = re.search(rb'type="(.+)" link="(.+)" facility="(.+)" x="([+-]?\d+(?:\.\d+)?)" y="([+-]?\d+(?:\.\d+)?)"', line)
-                        m = re.search(
-                            rb'type="(.+)" link="(.+)" x="([+-]?\d+(?:\.\d+)?)" y="([+-]?\d+(?:\.\d+)?)"',
-                            line)
+                        # m = re.search(rb'type="(.+)" link="(.+)" x="([+-]?\d+(?:\.\d+)?)" y="([+-]?\d+(?:\.\d+)?)"', line)
+
+                        type = re.search(rb'type="([^"]*)"', line).group(1).decode('utf-8')
+                        link = re.search(rb'link="([^"]*)"', line).group(1).decode('utf-8')
+                        x = re.search(rb'x="([^"]*)"', line).group(1).decode('utf-8')
+                        y = re.search(rb' y="([^"]*)"', line).group(1).decode('utf-8')
+                        activity_check = 1
+
+                        # facility regex match
+                        # m = re.search(rb'facility="([A-Za-z]+[\d@]+[\w@]*|[\d@]+[A-Za-z]+[\w@]*|[+-]?\d+(?:\.\d+)?)"', line)
+                        m = re.search(rb'facility="([^"]*)"', line)
                         if m:
-                            type = m.group(1).decode('utf-8')
-                            # facility = m.group(3).decode('utf-8')
-                            x = m.group(3).decode('utf-8')
-                            y = m.group(4).decode('utf-8')
-                            activity_check = 1
+                            facility = m.group(1).decode('utf-8')
+                        else:
+                            facility = str(type) + str(link)
+
+                        # add record to facility dictionary
+                        if facility not in list(facility_dict):
+                            persons = [person_id]
+                            facility_dict[facility] = (type, x, y, link, persons, len(persons))
+                        else:
+                            persons = facility_dict[facility][4]
+                            if person_id not in persons:
+                                persons.append(person_id)
+                                facility_dict[facility] = (type, x, y, link, persons, len(persons))
+
                     if (b"<attribute " in line) == True and activity_check == 1:
                         m = re.search(rb'name="(.+)" class="(.+)" >(.+)</attribute', line)
                         if m:
                             # name = m.group(1).decode('utf-8')
                             value = m.group(3).decode('utf-8')
                     if (b"</activity>" in line) == True and activity_check == 1:
-                        act_leg_list.append([type, 0, x, y, value, 'activity'])
+                        act_leg_list.append([type, facility, x, y, value, 'activity'])
+                        # act_leg_list.append([type, 0, x, y, value, 'activity'])
                         activity_check = 0
                     if b"<leg " in line:
                         m = re.search(rb'mode="(.+)" dep_time="(.+)" trav_time="(.+)"', line)
@@ -243,9 +271,9 @@ def population_parser_line(study_area_dir, area):
                             act = act_leg_list[0]
                             home_dict['from_type'] = act[0]
                             home_dict['from_facility'] = act[1]
-                            home_dict['from_x'] = act[2]
-                            home_dict['from_y'] = act[3]
-                            home_dict['ov_guteklasse'] = act[4]
+                            # home_dict['from_x'] = act[2]
+                            # home_dict['from_y'] = act[3]
+                            # home_dict['ov_guteklasse'] = act[4]
                             home_dict['stays_home'] = 'true'
                             home_dict['n_trips'] = 0
                             population_plans[person_id, 0, 0] = home_dict
@@ -259,17 +287,17 @@ def population_parser_line(study_area_dir, area):
                                 act_1 = act_leg_list[i]
                                 act_1_dict['from_type'] = act_1[0]
                                 act_1_dict['from_facility'] = act_1[1]
-                                act_1_dict['from_x'] = act_1[2]
-                                act_1_dict['from_y'] = act_1[3]
-                                act_1_dict['ov_guteklasse'] = act_1[4]
+                                # act_1_dict['from_x'] = act_1[2]
+                                # act_1_dict['from_y'] = act_1[3]
+                                # act_1_dict['ov_guteklasse'] = act_1[4]
 
                                 leg = act_leg_list[i+1]
                                 leg_dict['mode'] = leg[0]
                                 leg_dict['dep_time'] = leg[1]
                                 leg_dict['trav_time'] = leg[2]
                                 leg_dict['type'] = leg[3]
-                                leg_dict['start_link'] = leg[4]
-                                leg_dict['end_link'] = leg[5]
+                                # leg_dict['start_link'] = leg[4]
+                                # leg_dict['end_link'] = leg[5]
                                 leg_dict['distance'] = leg[6]
                                 # leg_dict['vehicleRefId'] = leg[7]
                                 # leg_dict['route'] = leg[8]
@@ -280,22 +308,22 @@ def population_parser_line(study_area_dir, area):
                                     population_plans[person_id, n_trip, n_leg] = plans_dict
                                     n_leg += 1
 
-                                if n_leg != 0 :
+                                if n_leg != 0:
                                     leg_2 = act_leg_list[i+2]
                                     leg_dict = {}
                                     leg_dict['mode'] = leg_2[0]
                                     leg_dict['dep_time'] = leg_2[1]
                                     leg_dict['trav_time'] = leg_2[2]
                                     leg_dict['type'] = leg_2[3]
-                                    leg_dict['start_link'] = leg_2[4]
-                                    leg_dict['end_link'] = leg_2[5]
+                                    # leg_dict['start_link'] = leg_2[4]
+                                    # leg_dict['end_link'] = leg_2[5]
                                     leg_dict['distance'] = leg_2[6]
 
                                     act_2 = act_leg_list[i+3]
                                     act_2_dict['to_type'] = act_2[0]
                                     act_2_dict['to_facility'] = act_2[1]
-                                    act_2_dict['to_x'] = act_2[2]
-                                    act_2_dict['to_y'] = act_2[3]
+                                    # act_2_dict['to_x'] = act_2[2]
+                                    # act_2_dict['to_y'] = act_2[3]
 
                                     plans_dict = {**leg_dict, **act_2_dict}
                                     plans_dict['stays_home'] = 'false'
@@ -304,8 +332,8 @@ def population_parser_line(study_area_dir, area):
 
                                 act_2_dict['to_type'] = act_2[0]
                                 act_2_dict['to_facility'] = act_2[1]
-                                act_2_dict['to_x'] = act_2[2]
-                                act_2_dict['to_y'] = act_2[3]
+                                # act_2_dict['to_x'] = act_2[2]
+                                # act_2_dict['to_y'] = act_2[3]
 
                                 plans_dict = {**act_1_dict, **leg_dict, **act_2_dict}
                                 plans_dict['stays_home'] = 'false'
@@ -317,6 +345,8 @@ def population_parser_line(study_area_dir, area):
                     # EXPORT DICT on .pkl and .csv
                     export_dict(population_attributes, 'population_attributes', out_path, file_number)
                     export_dict(population_plans, 'population_plans', out_path, file_number)
+                    with open(str(out_path) + '/facilities_dict.pkl', 'wb') as f2:
+                        pickle.dump(facility_dict, f2, pickle.HIGHEST_PROTOCOL)
                     attr_count += len(population_attributes)
                     plans_count += len(population_plans)
                     person_count = 0
@@ -324,9 +354,10 @@ def population_parser_line(study_area_dir, area):
                     population_attributes = {}
                     population_plans = {}
 
-        attr_df.at['population', area] = attr_count
-        attr_df.at['trips', area] = plans_count
-        attr_df.to_csv(str(study_area_dir) + "/attribute_table.csv", sep=",", index=True, index_label=['attributes'])
+        if area:
+            attr_df.at['population', area] = attr_count
+            attr_df.at['trips', area] = plans_count
+            attr_df.to_csv(str(study_area_dir) + "/attribute_table.csv", sep=",", index=True, index_label=['attributes'])
         print(datetime.datetime.now(), str('Population_attributes contains attributes of ') + str(attr_count) + str(' persons.'))
         print(datetime.datetime.now(), str('Population_plans contains information of ') + str(plans_count) + str(' trips.'))
 
@@ -336,36 +367,28 @@ def population_parser_line(study_area_dir, area):
             file = open(str(out_path) + '/' + 'population_plans_' + str(i) + '.pkl', 'rb')
             population_plans = pickle.load(file)
             df = pd.DataFrame.from_dict(population_plans, orient='index')
+            faci_df = pd.DataFrame.from_dict(facility_dict, orient='index')
+            faci_df = faci_df.reset_index()
+            faci_df.columns = ['facility_id', 'type', 'x', 'y', 'link', 'person_ids', 'n_persons']
             for loc in df.from_type.unique():
                 loc_file = str(out_path) + '/loc_' + str(loc) + '.csv'
-                rec_file = str(out_path) + '/rec_' + str(loc) + '.csv'
-                loc_df = df[df['from_type'] == loc][['from_x', 'from_y']]
-                loc_df.index.names = ['person_id', 'trip', 'leg']
-                loc_df = loc_df.reset_index()
+                loc_df = faci_df[faci_df['type'] == loc][['facility_id', 'x', 'y', 'link', 'person_ids', 'n_persons']]
+                loc_df.to_csv(loc_file, sep=",", index=False)
+                print(datetime.datetime.now(), loc, len(loc_df))
 
-                if os.path.isfile(rec_file):
-                    rec_df = pd.read_csv(rec_file)
-                    concat_rec_df = pd.concat([rec_df, loc_df])
-                    concat_rec_df.to_csv(rec_file, sep=",", index=False)
-                else:
-                    loc_df.to_csv(rec_file, sep=",", index=False)
 
-                if i == (file_number - 1):
-                    fullrec_df = pd.read_csv(rec_file)
-                    fullrec_df = fullrec_df[['person_id', 'from_x', 'from_y']].drop_duplicates()
-                    fullrec_df = fullrec_df.groupby(['from_x', 'from_y'])['person_id'].apply(list)
-                    fullrec_df.index.names = ['x', 'y']
-                    fullrec_df = fullrec_df.reset_index()
-                    for j in fullrec_df.index:
-                        fullrec_df.at[j, 'n_persons'] = len(fullrec_df.at[j, 'person_id'])
-                    fullrec_df.to_csv(loc_file, sep=",", index=False)
-                    os.remove(rec_file)
-                    print(datetime.datetime.now(), loc, len(fullrec_df))
 
         # home_loc = pd.read_csv(str(out_path) + "/loc_home.csv")
-        home_loc = area_fac
-        area_fac.head()
-        area_fac.columns
-        for index, row in home_loc.iterrows():
+        # home_loc = area_fac
+        # area_fac.head()
+        # area_fac.columns
+        # for index, row in home_loc.iterrows():
+        #
+        # print(home)
 
-            print(home)
+# population_parser_line(r'C:/Users/Ion/TFM/data/study_areas', 'switzerland_1pm', None)
+    # study_area_dir = r'C:/Users/Ion/TFM/data/study_areas'
+    # pop_folder = r'C:\Users\Ion\TFM\data\scenarios'
+    # out_folder = r'C:\Users\Ion\TFM\data\population_db/test'
+    # scenario = 'switzerland_1pm'
+    # area = None

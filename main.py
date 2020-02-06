@@ -45,19 +45,30 @@ print(datetime.datetime.now(), 'Main script begins ...')
 #                   2. Output directory to save new files
 #                   3. Scenario (i.e. 'switzerland_1pm', 'switzerland_1pct', 'switzerland_10pct'
 # '''
-# pop_list = ['switzerland_1pm', 'switzerland_1pct', 'switzerland_10pct']
-    # population_parser_line(r'C:\Users\Ion\TFM\data\scenarios',
-    #                        r'C:\Users\Ion\TFM\data\population_db/test',
-    #                        pop)
+pop_list = ['switzerland_1pm', 'switzerland_1pct', 'switzerland_10pct']
+for scenario in pop_list:
+    area = None
+    population_parser_line(r'C:\Users\Ion\TFM\data\scenarios',
+                           r'C:/Users/Ion/TFM/data/study_areas',
+                           scenario,
+                           area)
 
-# area_list = [dI for dI in os.listdir(r'C:\Users\Ion\TFM\data\study_areas') if
-#              os.path.isdir(os.path.join(r'C:\Users\Ion\TFM\data\study_areas', dI))]
+
+area_list = [dI for dI in os.listdir(r'C:\Users\Ion\TFM\data\study_areas') if
+             os.path.isdir(os.path.join(r'C:\Users\Ion\TFM\data\study_areas', dI))]
+for area in area_list:
+    scenario = None
+    population_parser_line(r'C:\Users\Ion\TFM\data\scenarios',
+                           r'C:/Users/Ion/TFM/data/study_areas',
+                           scenario,
+                           area)
 # for area in area_list:
 #     population_parser_line(r'C:/Users/Ion/TFM/data/study_areas',
 #                            area)
-    # population_parser_line(r'C:/Users/Ion/TFM/data/study_areas/' + str(area) + '/' + str(area) + '_population.xml.gz',
-    #                        r'C:/Users/Ion/TFM/data/study_areas/' + str(area) + '/population_db',
-    #                        r'C:/Users/Ion/TFM/data/study_areas')
+#     population_parser_line(r'C:/Users/Ion/TFM/data/study_areas/' + str(area) + '/' + str(area) + '_population.xml.gz',
+#                            r'C:/Users/Ion/TFM/data/study_areas/' + str(area) + '/population_db',
+#                            r'C:/Users/Ion/TFM/data/study_areas')
+
 
 # -------------------------------------------------------------------------------------------------------------
 # CREATE AND ANALYSE EVERY STUDY AREA
@@ -70,8 +81,8 @@ print(datetime.datetime.now(), 'Main script begins ...')
 #                   2. Directory of out_path from create_graph() where graph and nodes_dict files are
 #                   (i.e.: r"C:\Users\...\network\graph.gpickle")
 # '''
-filter_graph(r"C:\Users\Ion\TFM\data\study_areas",
-             r"C:\Users\Ion\TFM\data\network_graphs")
+# filter_graph(r"C:\Users\Ion\TFM\data\study_areas",
+#              r"C:\Users\Ion\TFM\data\network_graphs")
 
 # parser = argparse.ArgumentParser(description='Cut and analyse a graph for a certain input area.')
 # parser.add_argument('--study-areas', dest="study_areas", help='path to study areas')
