@@ -4,7 +4,6 @@ import xml.etree.ElementTree as ET
 import pickle
 import os
 import re
-import ast
 import datetime
 
 def extract_activity(activity,from_to):
@@ -159,7 +158,7 @@ def population_parser_line(scenario_dir, study_area_dir, scenario, area):
         print(datetime.datetime.now(), 'Directory created')
     else:
         print(datetime.datetime.now(), 'Directory exists')
-    # study_area_dir = r'C:/Users/Ion/TFM/data/study_areas'
+
     attr_df = pd.read_csv(str(study_area_dir) + '/' + 'attribute_table.csv', sep=",", index_col='attributes',
                           dtype=object)
 

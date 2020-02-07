@@ -54,11 +54,11 @@ for scenario in pop_list:
                            area)
 
 
-area_list = [dI for dI in os.listdir(r'C:\Users\Ion\TFM\data\study_areas') if
-             os.path.isdir(os.path.join(r'C:\Users\Ion\TFM\data\study_areas', dI))]
+area_list = [dI for dI in os.listdir(r'C:/Users/Ion/TFM/data/study_areas') if
+             os.path.isdir(os.path.join(r'C:/Users/Ion/TFM/data/study_areas', dI))]
 for area in area_list:
     scenario = None
-    population_parser_line(r'C:\Users\Ion\TFM\data\scenarios',
+    population_parser_line(r'C:/Users/Ion/TFM/data/scenarios',
                            r'C:/Users/Ion/TFM/data/study_areas',
                            scenario,
                            area)
