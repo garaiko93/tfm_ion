@@ -4,8 +4,8 @@ import datetime
 import os
 import argparse
 # from network_graph import parse_network
-from graph_analysis import filter_graph
-from population_parser import population_parser_line
+# from graph_analysis import filter_graph
+from population_parser import population_parser_setup
 
 print(datetime.datetime.now(), 'Main script begins ...')
 
@@ -45,23 +45,30 @@ print(datetime.datetime.now(), 'Main script begins ...')
 #                   2. Output directory to save new files
 #                   3. Scenario (i.e. 'switzerland_1pm', 'switzerland_1pct', 'switzerland_10pct'
 # '''
-pop_list = ['switzerland_1pm', 'switzerland_1pct', 'switzerland_10pct']
-for scenario in pop_list:
-    area = None
-    population_parser_line(r'C:\Users\Ion\TFM\data\scenarios',
-                           r'C:/Users/Ion/TFM/data/study_areas',
-                           scenario,
-                           area)
+# population_parser_line(scenarios_dir)
+#
+# pop_list = ['switzerland_1pm', 'switzerland_1pct', 'switzerland_10pct']
+# for scenario in pop_list:
+#     area = None
+#     population_parser_line(r'C:\Users\Ion\TFM\data\scenarios',
+#                            r'C:/Users/Ion/TFM/data/study_areas',
+#                            scenario,
+#                            area)
+#
+#
+# area_list = [dI for dI in os.listdir(r'C:/Users/Ion/TFM/data/study_areas') if
+#              os.path.isdir(os.path.join(r'C:/Users/Ion/TFM/data/study_areas', dI))]
+# for area in area_list:
+#     scenario = None
+#     population_parser_line(r'C:/Users/Ion/TFM/data/scenarios',
+#                            r'C:/Users/Ion/TFM/data/study_areas',
+#                            scenario,
+#                            area)
+
+population_parser_setup(r'C:/Users/Ion/TFM/data/study_areas',
+                        'luzern')
 
 
-area_list = [dI for dI in os.listdir(r'C:/Users/Ion/TFM/data/study_areas') if
-             os.path.isdir(os.path.join(r'C:/Users/Ion/TFM/data/study_areas', dI))]
-for area in area_list:
-    scenario = None
-    population_parser_line(r'C:/Users/Ion/TFM/data/scenarios',
-                           r'C:/Users/Ion/TFM/data/study_areas',
-                           scenario,
-                           area)
 # for area in area_list:
 #     population_parser_line(r'C:/Users/Ion/TFM/data/study_areas',
 #                            area)

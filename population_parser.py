@@ -5,6 +5,7 @@ import pickle
 import os
 import re
 import datetime
+from attrdf_manip import take_avg
 
 def extract_activity(activity,from_to):
     act_list = activity.attrib
@@ -34,8 +35,7 @@ def export_dict(dict, file_name, out_path, file_number):
     else:
         df.to_csv(str(out_path) + '/' + str(file_name) + '_' + str(file_number) + '.csv', sep=",", index=True, index_label=['person_id'])
 
-# pop_file = r'C:\Users\Ion\TFM\data\scenarios\switzerland_1pm\switzerland_population.xml.gz'
-# out_path = r'C:\Users\Ion\TFM\data\population_db'
+
 # PARSE NETWORK XML FILE BY A PARSER
 def population_parser_etree(pop_folder,out_folder,scenario):
     # define path and file variables
@@ -133,34 +133,50 @@ def population_parser_etree(pop_folder,out_folder,scenario):
 # -plan: selected='no' (not found)
 # -why attributes length = 7984 and unique id population_plans is 7533? this is people that stays at home
 
+# -----------------------------------------------------------------------------
+# MAIN FUNCTION OF SCRIPT: checks if a group of scenarios or a specific one is passed to then call 'check_pop_file'
+# -----------------------------------------------------------------------------
+def population_parser_setup(scenario_area_dir, scenario_area=None):
+    print(datetime.datetime.now(), 'Population parser setup begins ...')
+    if scenario_area:
+        check_pop_file(scenario_area_dir, scenario_area)
+    else:
+        scr_list = [dI for dI in os.listdir(scenario_area_dir) if os.path.isdir(os.path.join(scenario_area_dir, dI))]
+        for scr in scr_list:
+            check_pop_file(scenario_area_dir, scr)
 
-# def population_parser_line(pop_file, out_path, study_area_dir, area):
-def population_parser_line(scenario_dir, study_area_dir, scenario, area):
-    # study_area_dir = r'C:/Users/Ion/TFM/data/study_areas'
-    # pop_folder = r'C:\Users\Ion\TFM\data\scenarios'
-    # out_folder = r'C:\Users\Ion\TFM\data\population_db/test'
-    # scenario = 'switzerland_1pm'
-    # area = None
+# -----------------------------------------------------------------------------
+# SECOND function of script: assigns out_path and finds population.xml file
+# -----------------------------------------------------------------------------
+def check_pop_file(scenario_area_dir, scenario_area):
+    out_path = str(scenario_area_dir) + '/' + str(scenario_area) + '/population_db'
+    swiss_scr = os.path.isfile(
+        str(scenario_area_dir) + '/' + str(scenario_area) + '/switzerland_population.xml.gz')
+    study_area_scr = os.path.isfile(
+        str(scenario_area_dir) + '/' + str(scenario_area) + '/' + str(scenario_area) + '_population.xml.gz')
 
-    # define path and file variables
-    if area:
-        print(area)
-        out_path = str(study_area_dir) + '/' + str(area) + '/population_db'
-        pop_file = str(study_area_dir) + '/' + str(area) + '/' + str(area) + '_population.xml.gz'
-    elif scenario:
-        print(scenario)
-        out_path = str(scenario_dir) + '/' + str(scenario) + '/population_db'
-        pop_file = str(scenario_dir) + '/' + str(scenario) + '/switzerland_population.xml.gz'
+    if swiss_scr:
+        pop_file = str(scenario_area_dir) + '/' + str(scenario_area) + '/switzerland_population.xml.gz'
+        print(datetime.datetime.now(), 'Population file found in scenario folder as: switzerland_population.xml.gz')
+        population_parser_line(out_path, pop_file, scenario_area, None)
+    elif study_area_scr:
+        pop_file = str(scenario_area_dir) + '/' + str(scenario_area) + '/' + str(
+            scenario_area) + '_population.xml.gz'
+        print(datetime.datetime.now(), 'Population file found in scenario folder as: ' + str(scenario_area) + '_population.xml.gz')
+        population_parser_line(out_path, pop_file, scenario_area, scenario_area_dir)
+    else:
+        raise Exception("Scenario folder has no population.xml file!")
 
-    # check if out directory exists and create it if not
+# -----------------------------------------------------------------------------
+# THIRD function: it parses the population file found before
+# -----------------------------------------------------------------------------
+def population_parser_line(out_path, pop_file, scenario_area=None, attr_table_dir=None):
+    # check if out_path exists and create it if not
     if not os.path.exists(str(out_path)):
         os.makedirs(str(out_path))
         print(datetime.datetime.now(), 'Directory created')
     else:
         print(datetime.datetime.now(), 'Directory exists')
-
-    attr_df = pd.read_csv(str(study_area_dir) + '/' + 'attribute_table.csv', sep=",", index_col='attributes',
-                          dtype=object)
 
     population_attributes = {}
     population_plans = {}
@@ -174,7 +190,7 @@ def population_parser_line(scenario_dir, study_area_dir, scenario, area):
     plans_count = 0
 
     if os.path.isfile(str(out_path)+"/loc_freight_loading.csv") == False:
-        print(datetime.datetime.now(), 'Parsing population process begins ...')
+        print(datetime.datetime.now(), 'Parsing population ...')
         with gzip.open(pop_file) as f:
             #     reading line by line the 'nodes' file created at the beginning, data for each node fulfilling the conditions are stored for the output
             for line in f:
@@ -353,10 +369,14 @@ def population_parser_line(scenario_dir, study_area_dir, scenario, area):
                     population_attributes = {}
                     population_plans = {}
 
-        if area:
-            attr_df.at['population', area] = attr_count
-            attr_df.at['trips', area] = plans_count
-            attr_df.to_csv(str(study_area_dir) + "/attribute_table.csv", sep=",", index=True, index_label=['attributes'])
+        if attr_table_dir:
+            attr_df = pd.read_csv(str(attr_table_dir) + '/attribute_table.csv', sep=",", index_col='attributes',
+                                  dtype=object)
+            print(datetime.datetime.now(), 'Attributes table loaded successfully.')
+            attr_df.at['population', scenario_area] = attr_count
+            attr_df.at['trips', scenario_area] = plans_count
+            take_avg(attr_df)
+            # attr_df.to_csv(str(attr_table_dir) + "/attribute_table.csv", sep=",", index=True, index_label=['attributes'])
         print(datetime.datetime.now(), str('Population_attributes contains attributes of ') + str(attr_count) + str(' persons.'))
         print(datetime.datetime.now(), str('Population_plans contains information of ') + str(plans_count) + str(' trips.'))
 
