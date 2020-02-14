@@ -1,17 +1,14 @@
-import matplotlib as mpl
 import pandas as pd
 import ast
 
-# x= [1,2,3,4,5,6,7,8,9]
-# y= [0.1,0.2,0.3,0.5,0.6,0.65,0.8,1.3,1.5]
-# plt.plot(x,y)
+# functions from other scripts
+from graph_analysis import save_attr_df
 
 # change table attributes, to avg values
-study_area_dir= r"C:\Users\Ion\TFM\data\study_areas"
-attr_df = pd.read_csv(str(study_area_dir) + '/' + 'attribute_table.csv', sep=",", index_col='attributes', dtype=object)
-# attr_df, attr_avg_df = take_avg(attr_df)
+# study_area_dir= r"C:\Users\Ion\TFM\data\study_areas"
+# attr_df = pd.read_csv(str(study_area_dir) + '/' + 'attribute_table.csv', sep=",", index_col='attributes', dtype=object)
 
-def take_avg(attr_df):
+def take_avg(attr_df, study_area_dir):
     # take avg of cells (if possible)
     attr_avg_df = attr_df.copy(deep=True)
 
@@ -19,23 +16,28 @@ def take_avg(attr_df):
         # print(attr_df.index[i], i)
         for column in attr_df.columns:
             try:
+                # INTEGER ATTRIBUTES
                 if attr_df.index[i] in ['n_nodes', 'n_edges', 'population', 'trips',
-                     'radius', 'diameter']:
+                                        'radius', 'diameter', 'n_intersection', 'n_street']:
                     str_val = attr_df.iloc[i][column]
                     int_val = int(float(str_val))
                     attr_df.at[attr_df.index[i], column] = int_val
                     attr_avg_df.at[attr_avg_df.index[i], column] = int_val
 
+                # FLOAT ATTRIBUTES
                 elif attr_df.index[i] in ['network_distance', 'area', 'avg_degree', 'avg_edge_density',
-                                          'avg_shortest_path_duration']:
+                                          'avg_shortest_path_duration', 'streets_per_node', 'node_d_km',
+                                          'intersection_d_km', 'edge_d_km', 'street_d_km', 'circuity_avg']:
                     str_val = attr_df.iloc[i][column]
                     flo_val = float(str_val)
                     attr_df.at[attr_df.index[i], column] = flo_val
                     attr_avg_df.at[attr_avg_df.index[i], column] = flo_val
+
+                # LIST ATTRIBUTES: [n, min, max, avg]
                 elif attr_df.index[i] in ['degree_centrality', 'avg_degree_connectivity', 'node_betweenness*',
-                                          'edge_betweenness', 'node_load_centrality', 'edge_load_centrality', 'clustering*',
-                                          'eccentricity', 'node_closeness*', 'avg_neighbor_degree', 'node_straightness',
-                                          'clustering_w*']:
+                                          'edge_betweenness', 'node_load_centrality', 'edge_load_centrality',
+                                          'clustering*', 'eccentricity', 'node_closeness*', 'avg_neighbor_degree',
+                                          'node_straightness', 'clustering_w*']:
                     str_val = attr_df.iloc[i][column]
                     list_val = ast.literal_eval(str_val)
                     attr_df.at[attr_df.index[i], column] = list_val
@@ -52,14 +54,40 @@ def take_avg(attr_df):
 
 
     # reindex dataframe
-    new_index = ['n_nodes', 'n_edges', 'network_distance', 'area', 'population', 'trips',
-                 'avg_degree', 'degree_centrality',
-                 'avg_degree_connectivity', 'avg_edge_density',
-                 'avg_shortest_path_duration', 'node_betweenness*', 'edge_betweenness',
-                 'node_load_centrality', 'edge_load_centrality', 'clustering*',
-                 'eccentricity', 'radius', 'diameter', 'center_nodes', 'periphery_nodes',
-                 'barycenter_nodes', 'node_closeness*', 'avg_neighbor_degree',
-                 'node_straightness', 'clustering_w*']
+    new_index = ['n_nodes',            #stats_basic
+                  'n_edges',            #stats_basic
+                  'network_distance',   #stats_basic
+                  'area',
+                  'population',
+                  'trips',
+                  'n_intersection',     #stats_basic
+                  'n_street',           #stats_basic
+                  'streets_per_node',   #stats_basic
+                  'node_d_km',          #stats_basic
+                  'intersection_d_km',  #stats_basic
+                  'edge_d_km',     #stats_basic
+                  'street_d_km',    #stats_basic
+                  'circuity_avg',    #stats_basic
+                  'avg_degree',
+                  'avg_neighbor_degree',
+                  'degree_centrality',
+               'avg_degree_connectivity',
+               'avg_edge_density',
+               'avg_shortest_path_duration',
+               'node_betweenness*',
+               'edge_betweenness',
+                'node_straightness',
+               'node_closeness*',
+               'node_load_centrality',
+               'edge_load_centrality',
+                  'clustering*',
+                  'clustering_w*',
+               'eccentricity',
+               'radius',
+               'diameter',
+               'center_nodes',
+               'periphery_nodes',
+               'barycenter_nodes']
     attr_df = attr_df.reindex(new_index)
     attr_avg_df = attr_avg_df.reindex(new_index)
 
@@ -75,12 +103,8 @@ def take_avg(attr_df):
     attr_avg_dfT = attr_avg_df.transpose()
 
     # save the three dataframes to csv
-    attr_df.to_csv(str(study_area_dir) + "/attribute_table.csv", sep=",", index=True, index_label=['attributes'])
-    attr_avg_df.to_csv(str(study_area_dir) + "/attribute_table_AVG.csv", sep=",", index=True,
-                       index_label=['attributes'])
-    attr_avg_dfT.to_csv(str(study_area_dir) + "/attribute_table_AVG_T.csv", sep=",", index=True, index_label=['study_area'])
-
-    return attr_df, attr_avg_df
+    save_attr_df(attr_df, study_area_dir, attr_avg_df, attr_avg_dfT)
+    # return attr_df, attr_avg_df
 
 
 # this takes from every cell (if it is a list) the value in 4th position which corresponds to the avg value

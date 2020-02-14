@@ -3,8 +3,10 @@
 import datetime
 import os
 import argparse
+
+# functions from other scripts
 # from network_graph import parse_network
-# from graph_analysis import filter_graph
+from graph_analysis import filter_graph
 from population_parser import population_parser_setup
 
 print(datetime.datetime.now(), 'Main script begins ...')
@@ -65,9 +67,7 @@ print(datetime.datetime.now(), 'Main script begins ...')
 #                            scenario,
 #                            area)
 
-population_parser_setup(r'C:/Users/Ion/TFM/data/study_areas',
-                        'luzern')
-
+# population_parser_setup(r'C:/Users/Ion/TFM/data/scenarios')
 
 # for area in area_list:
 #     population_parser_line(r'C:/Users/Ion/TFM/data/study_areas',
@@ -88,8 +88,9 @@ population_parser_setup(r'C:/Users/Ion/TFM/data/study_areas',
 #                   2. Directory of out_path from create_graph() where graph and nodes_dict files are
 #                   (i.e.: r"C:\Users\...\network\graph.gpickle")
 # '''
-# filter_graph(r"C:\Users\Ion\TFM\data\study_areas",
-#              r"C:\Users\Ion\TFM\data\network_graphs")
+
+filter_graph(r"C:\Users\Ion\TFM\data\study_areas",
+             r"C:\Users\Ion\TFM\data\network_graphs")
 
 # parser = argparse.ArgumentParser(description='Cut and analyse a graph for a certain input area.')
 # parser.add_argument('--study-areas', dest="study_areas", help='path to study areas')

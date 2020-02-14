@@ -1,13 +1,16 @@
 import matplotlib as mpl
-import pandas as pd
-import ast
-import numpy as np
 mpl.use('agg')
 mpl.use('TkAgg')
 import matplotlib.pyplot as plt
 import pickle
 import tkinter
 
+# functions from other scripts
+from vioboxPlot import violinboxplot
+
+# -----------------------------------------------------------------------------
+# DATA PREPARATION TO PLOT
+# -----------------------------------------------------------------------------
 data_to_plot = []
 x_axis = []
 # for area in ['luzern', 'bern', 'zurich_kreis', 'lausanne', 'lugano', 'stgallen']:
@@ -22,21 +25,39 @@ for area in ['sion', 'linthal', 'frutigen', 'neuchatel', 'zermatt', 'locarno', '
     data_to_plot.append(data)
     x_axis.append(area)
 
+# -----------------------------------------------------------------------------
+# VIOBOXPLOT FUNCTION CALL
+# -----------------------------------------------------------------------------
+plt.figure(figsize=(10,4))
+ax = plt.gca()
+violinboxplot(data_to_plot, labels=x_axis, showModes=True, showCounts=True,
+              title="All Study Areas - Node Straightness Centrality")
+
+
+# plt.figure(figsize=(10,4))
+# ax = plt.gca()
+# violinboxplot(df, x = 'values', y = ['col1', 'col2'],
+#               showModes=True, ax = ax, logPercentile=0.9, labels=labels7, showCounts=True,
+#              title="Dataframe grouped by col1 and col2")
+
+
+# -----------------------------------------------------------------------------
 # # box plot
-fig = plt.figure(1, figsize=(9, 6))
-# fig.suptitle('Rural Study Areas - Node Straightness Centrality', fontsize=14, fontweight='bold')
-fig.suptitle('All Study Areas - Node Straightness Centrality', fontsize=14, fontweight='bold')
-ax = fig.add_subplot(111)
-ax.set_xticklabels(x_axis)
+# -----------------------------------------------------------------------------
+# fig = plt.figure(1, figsize=(9, 6))
+# # fig.suptitle('Rural Study Areas - Node Straightness Centrality', fontsize=14, fontweight='bold')
+# fig.suptitle('All Study Areas - Node Straightness Centrality', fontsize=14, fontweight='bold')
+# ax = fig.add_subplot(111)
+# ax.set_xticklabels(x_axis)
 
 # bp = ax.boxplot(data_to_plot)
 # bp = ax.boxplot(data_to_plot, showfliers=False)
 
-# add patch_artist=True option to ax.boxplot()
-# to get fill color
-bp = ax.boxplot(data_to_plot, patch_artist=True)
-
-# change outline color, fill color and linewidth of the boxes
+# # add patch_artist=True option to ax.boxplot()
+# # to get fill color
+# bp = ax.boxplot(data_to_plot, patch_artist=True)
+#
+# # change outline color, fill color and linewidth of the boxes
 # for box in bp['boxes']:
 #     # change outline color
 #     box.set( color='#7570b3', linewidth=2)
@@ -58,18 +79,13 @@ bp = ax.boxplot(data_to_plot, patch_artist=True)
 # ## change the style of fliers and their fill
 # for flier in bp['fliers']:
 #     flier.set(marker='o', color='#e7298a', alpha=0.5)
+#
+# # plt.show()
+# plt.savefig("data/attribute_plots/all_areas_straightness.png")
 
-# plt.show()
-plt.savefig("data/attribute_plots/all_areas_straightness.png")
-
-
-
-
-
-
-
-
+# -----------------------------------------------------------------------------
 # violin plot
+# -----------------------------------------------------------------------------
 # fig = plt.figure()
 # ax = fig.add_subplot(111)
 # bp = ax.violinplot(data_to_plot, showfliers=False)

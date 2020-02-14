@@ -69,3 +69,24 @@ for letter in path:
     else:
         n_path.append(letter)
 print(''.join(n_path))
+
+
+import os
+
+area = 'stgallen'
+study_area_dir= r"C:/Users/Ion/TFM/data/study_areas/" + str(area)
+file = open(str(study_area_dir) + "/stats_basic.pkl", 'rb')
+nodes_betw = pickle.load(file)
+areas_list = [dI for dI in os.listdir(r"C:/Users/Ion/TFM/data/study_areas/") if os.path.isdir(os.path.join(r"C:/Users/Ion/TFM/data/study_areas/", dI))]
+
+for area in areas_list:
+    study_area_dir = r"C:/Users/Ion/TFM/data/study_areas/" + str(area)
+    if os.path.isfile(str(study_area_dir) + "/stats_basic.pkl") == True:
+        print(area)
+
+def save():
+    save = False
+    if save:
+        print('asdf')
+
+save()
