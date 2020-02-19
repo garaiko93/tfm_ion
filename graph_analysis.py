@@ -13,7 +13,6 @@ import datetime
 
 # functions from other scripts
 from network_graph import check_iso_graph
-# from attrdf_manip import take_avg
 
 
 def save_attr_df(attr_df, study_area_dir, attr_avg_df=None, attr_avg_dfT=None):
@@ -65,8 +64,7 @@ def straightness(nodes_dict, new_G):
                 sp_dist += g.es[k]['length']
             dist_comp = eucl_dist / sp_dist
             dist_comp_list.append(dist_comp)
-        straightness = (1 / (len(g.vs) - 1)) * sum(dist_comp_list)
-        node_straightness[i] = straightness
+        node_straightness[i] = (1 / (len(g.vs) - 1)) * sum(dist_comp_list)
         n += 1
     return node_straightness
 
@@ -80,10 +78,10 @@ def dict_data(dicti, shp_path, attrib_name):
         pickle.dump(dicti, f, pickle.HIGHEST_PROTOCOL)
     print(datetime.datetime.now(), str(attrib_name) + ' (len,min,max,avg): ' +
           str(len_val) + ', ' + str(min_val) + ', ' + str(max_val) + ', ' + str(avg_val))
-    return str([len_val, min_val,max_val,avg_val])
+    return str([len_val, min_val, max_val, avg_val])
 
 
-def cut_graph(G,shp_path, graphtype, area, study_area_shp):
+def cut_graph(G, shp_path, graphtype, area, study_area_shp):
     new_G = copy.deepcopy(G)
     for node in list(new_G.nodes):
         point = Point(G.nodes[node]['x'], G.nodes[node]['y'])
@@ -91,7 +89,7 @@ def cut_graph(G,shp_path, graphtype, area, study_area_shp):
         if not in_shp:
             new_G.remove_node(node)
     filename = str(area) + '_' + str(graphtype)
-    [new_G, isolated, largest] = check_iso_graph(new_G, shp_path,filename)
+    [new_G, isolated, largest] = check_iso_graph(new_G, shp_path, filename)
     return new_G
 
 
@@ -194,7 +192,8 @@ def topology_attributes(study_area_dir, area, attr_df, study_area_shp, nodes_dic
                   'node_betweenness*',
                   'edge_betweenness',
                   'node_straightness',
-                  'node_closeness*',
+                  'node_closeness_time*',
+                  'node_closeness_length*',
                   'node_load_centrality',
                   'edge_load_centrality',
                   'clustering*',
@@ -214,10 +213,12 @@ def topology_attributes(study_area_dir, area, attr_df, study_area_shp, nodes_dic
 
     # create empty row with areas name to add attributes
     if area not in attr_df.columns:
-        new_column = pd.DataFrame({area: [len(list(new_G)), len(new_G.edges()), study_area_shp.area]}, index=['n_nodes', 'n_edges', 'area'])
+        new_column = pd.DataFrame({area: [len(list(new_G)), len(new_G.edges()), study_area_shp.area]},
+                                  index=['n_nodes', 'n_edges', 'area'])
         attr_df = pd.concat([attr_df, new_column], axis=1, sort=False)
         attr_df = attr_df.astype({area: object})
-        print(datetime.datetime.now(), 'Added ' + str(area) + ' as column to attr_df as dtype: ' + str(attr_df[area].dtype))
+        print(datetime.datetime.now(), 'Added ' + str(area) + ' as column to attr_df as dtype: ' +
+              str(attr_df[area].dtype))
     else:
         print(datetime.datetime.now(), 'Area exists in attributes table, checking for additional attributes')
 
@@ -242,20 +243,21 @@ def topology_attributes(study_area_dir, area, attr_df, study_area_shp, nodes_dic
         attr_df.at['avg_degree', area] = avg_deg
         save_attr_df(attr_df, study_area_dir)
         print(datetime.datetime.now(), 'Average degree(edges adj per node): ' + str(avg_deg))
+    # avg_neighbour_degree:  average degree of the neighborhood of each node
     if pd.isnull(attr_df.loc['avg_neighbor_degree', area]):
         avg_neighbor_degree = nx.average_neighbor_degree(new_G)
         avg_neighbor_degree_data = dict_data(avg_neighbor_degree, shp_path, 'avg_neighbor_degree')
         attr_df.at['avg_neighbor_degree', area] = avg_neighbor_degree_data
         save_attr_df(attr_df, study_area_dir)
     # ----------------------------------------------------------------------
-    # 2. DEGREE OF CENTRALITY:
+    # 2. DEGREE OF CENTRALITY: The degree centrality for a node v is the fraction of nodes it is connected to (normalized)
     if pd.isnull(attr_df.loc['degree_centrality', area]):
         degree_centr = nx.algorithms.degree_centrality(new_G)
         degree_centr_data = dict_data(degree_centr, shp_path, 'degree_centrality')
         attr_df.at['degree_centrality', area] = degree_centr_data
         save_attr_df(attr_df, study_area_dir)
     # ----------------------------------------------------------------------
-    # 3. CONNECTIVITY: For a node of degree k - What is the average of its neighbours' degree?
+    # 3. CONNECTIVITY:  is the average nearest neighbor degree of nodes with degree k
     if pd.isnull(attr_df.loc['avg_degree_connectivity', area]):
         avg_degree_connect = nx.average_degree_connectivity(new_G)
         avg_degree_connect_data = dict_data(avg_degree_connect, shp_path, 'avg_degree_connect')
@@ -273,7 +275,8 @@ def topology_attributes(study_area_dir, area, attr_df, study_area_shp, nodes_dic
         # print('Node connectivity k: ' + str(avg_node_connect))
         # attr_df.to_csv(str(study_area_dir) + "/attribute_table.csv", sep=",", index=True, index_label=['attributes'])
     # ----------------------------------------------------------------------
-    # 4. AVG EDGE DENSITY: Average edge density of the Graphs
+    # 4. AVG EDGE DENSITY: Average edge density of the Graphs.
+    # The density is 0 for a graph without edges and 1 for a complete graph.
     if pd.isnull(attr_df.loc['avg_edge_density', area]):
         avg_edge_density = nx.density(new_G)
         attr_df.at['avg_edge_density', area] = avg_edge_density
@@ -288,8 +291,8 @@ def topology_attributes(study_area_dir, area, attr_df, study_area_shp, nodes_dic
         save_attr_df(attr_df, study_area_dir)
         print(datetime.datetime.now(), 'Average shortest path length (duration in seconds): ' + str(avg_spl))
     # ----------------------------------------------------------------------
-    # 6. BETWEENNESS CENTRALITY: how many times a node or edge is passed for the sp
-    # nodes betweenness
+    # 6. BETWEENNESS CENTRALITY: the fraction of nodes/edges of how many times is passed for the sp
+    # nodes betweenness: not agree with the result of this algorithm based on the definition of betweenness...
     if pd.isnull(attr_df.loc['node_betweenness*', area]):
         node_betw_centr = nx.betweenness_centrality(new_diG, weight='time')
         node_betw_centr_data = dict_data(node_betw_centr, shp_path, 'node_betweenness')
@@ -303,30 +306,34 @@ def topology_attributes(study_area_dir, area, attr_df, study_area_shp, nodes_dic
         save_attr_df(attr_df, study_area_dir)
     # ----------------------------------------------------------------------
     # 7. CLOSENESS CENTRALITY: Of a node is the average length of the shortest path from the node to all other nodes
-    # nodes betweenness
-    if pd.isnull(attr_df.loc['node_closeness*', area]):
-        node_close_centr = nx.closeness_centrality(new_diG, distance='length')
-        node_close_centr_data = dict_data(node_close_centr, shp_path, 'node_closeness')
-        attr_df.at['node_closeness*', area] = node_close_centr_data
+    if pd.isnull(attr_df.loc['node_closeness_time*', area]):
+        node_close_time_centr = nx.closeness_centrality(new_diG, distance='time')
+        node_close_centr_data = dict_data(node_close_time_centr, shp_path, 'node_closeness_time')
+        attr_df.at['node_closeness_time*', area] = node_close_time_centr
+        save_attr_df(attr_df, study_area_dir)
+    if pd.isnull(attr_df.loc['node_closeness_length*', area]):
+        node_close_dist_centr = nx.closeness_centrality(new_diG, distance='length')
+        node_close_dist_centr = dict_data(node_close_dist_centr, shp_path, 'node_closeness_length')
+        attr_df.at['node_closeness_length*', area] = node_close_dist_centr
         save_attr_df(attr_df, study_area_dir)
 
     # ----------------------------------------------------------------------
     # 8. STRAIGHTNESS CENTRALITY: compares the shortest path with the euclidean distance of each pair of nodes
-    if pd.isnull(attr_df.loc['node_straightness', area]):
-        node_straightness = straightness(nodes_dict, new_G)
-        node_straightness_data = dict_data(node_straightness, shp_path, 'node_straightness')
-        attr_df.at['node_straightness', area] = node_straightness_data
-        save_attr_df(attr_df, study_area_dir)
+    # if pd.isnull(attr_df.loc['node_straightness', area]):
+    #     node_straightness = straightness(nodes_dict, new_G)
+    #     node_straightness_data = dict_data(node_straightness, shp_path, 'node_straightness')
+    #     attr_df.at['node_straightness', area] = node_straightness_data
+    #     save_attr_df(attr_df, study_area_dir)
 
     # ----------------------------------------------------------------------
-    # 8. LOAD CENTRALITY:counts the number of shortest paths which cross each node/edge
-    # nodes load:
+    # 8. LOAD CENTRALITY:counts the fraction of shortest paths which cross each node/edge
+    # nodes load: of a node is the fraction of all shortest paths that pass through that node.
     if pd.isnull(attr_df.loc['node_load_centrality', area]):
         load_centrality = nx.load_centrality(new_G)
         load_centrality_data = dict_data(load_centrality, shp_path, 'node_load_centrality')
         attr_df.at['node_load_centrality', area] = load_centrality_data
         save_attr_df(attr_df, study_area_dir)
-    # edges load:
+    # edges load: counts the number of shortest paths which cross each edge
     if pd.isnull(attr_df.loc['edge_load_centrality', area]):
         edge_load = nx.edge_load_centrality(new_G)
         edge_load_data = dict_data(edge_load, shp_path, 'edge_load_centrality')
@@ -341,7 +348,7 @@ def topology_attributes(study_area_dir, area, attr_df, study_area_shp, nodes_dic
         attr_df.at['clustering*', area] = clustering_data
 
         clustering_weighted = nx.clustering(new_diG, weight='time')
-        clustering_weighted_data = dict_data(clustering_weighted, shp_path, 'clustering')
+        clustering_weighted_data = dict_data(clustering_weighted, shp_path, 'clustering_w')
         attr_df.at['clustering_w*', area] = clustering_weighted_data
 
         save_attr_df(attr_df, study_area_dir)
@@ -458,7 +465,8 @@ def take_avg(attr_df, study_area_dir):
                 # LIST ATTRIBUTES: [n, min, max, avg]
                 elif attr_df.index[i] in ['degree_centrality', 'avg_degree_connectivity', 'node_betweenness*',
                                           'edge_betweenness', 'node_load_centrality', 'edge_load_centrality',
-                                          'clustering*', 'eccentricity', 'node_closeness*', 'avg_neighbor_degree',
+                                          'clustering*', 'eccentricity', 'node_closeness_time*',
+                                            'node_closeness_length*', 'avg_neighbor_degree',
                                           'node_straightness', 'clustering_w*']:
                     str_val = attr_df.iloc[i][column]
                     list_val = ast.literal_eval(str_val)
@@ -498,7 +506,8 @@ def take_avg(attr_df, study_area_dir):
                   'node_betweenness*',
                   'edge_betweenness',
                   'node_straightness',
-                  'node_closeness*',
+                  'node_closeness_time*',
+                  'node_closeness_length*',
                   'node_load_centrality',
                   'edge_load_centrality',
                   'clustering*',
@@ -517,7 +526,7 @@ def take_avg(attr_df, study_area_dir):
     attr_avg_df = attr_avg_df.sort_values(by='network_distance', ascending=False, axis=1)
 
     # delete some columns and rows in avg table
-    attr_avg_df = attr_avg_df.drop(index=['center_nodes', 'periphery_nodes', 'barycenter_nodes'],
+    attr_avg_df = attr_avg_df.drop(index=['center_nodes', 'periphery_nodes', 'barycenter_nodes', 'clustering_w*'],
                                    columns=['bern_large', 'zurich_large', 'lausanne_lake'])
 
     # create a transpose of the matrix

@@ -7,7 +7,8 @@ import re
 import datetime
 
 # functions from other scripts
-from attrdf_manip import take_avg
+# from attrdf_manip import take_avg
+
 
 def extract_activity(activity,from_to):
     act_list = activity.attrib
@@ -306,8 +307,10 @@ def population_parser_line(out_path, pop_file, scenario_area=None, attr_table_di
                 loc_df = faci_df[faci_df['type'] == loc][['facility_id', 'x', 'y', 'link', 'person_ids', 'n_persons']]
                 loc_df.to_csv(loc_file, sep=",", index=False)
                 print(datetime.datetime.now(), loc, len(loc_df))
+        print('----------------------------------------------------------------------')
     else:
-        print('Population was already parsed for ' + str(scenario_area))
+        print(datetime.datetime.now(), 'Population was already parsed for ' + str(scenario_area))
+        print('----------------------------------------------------------------------')
 
 
 # home_loc = pd.read_csv(str(out_path) + "/loc_home.csv")

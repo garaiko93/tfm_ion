@@ -68,6 +68,7 @@ print(datetime.datetime.now(), 'Main script begins ...')
 #                            area)
 
 # population_parser_setup(r'C:/Users/Ion/TFM/data/scenarios')
+# population_parser_setup(r'C:/Users/Ion/TFM/data/study_areas')
 
 # for area in area_list:
 #     population_parser_line(r'C:/Users/Ion/TFM/data/study_areas',

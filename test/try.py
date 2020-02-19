@@ -4,7 +4,7 @@ import gzip
 
 trips =pd.read_csv('C:/User')
 
-file = open(r'C:\Users\Ion\TFM\data\study_areas\sion/attr_node_straightness.pkl', 'rb')
+file = open(r'C:\Users\Ion\TFM\data\study_areas\sion/attr_node_betweenness.pkl', 'rb')
 nodes_dict = pickle.load(file)
 dict_data(nodes_dict, r'C:\Users\Ion\TFM\data\study_areas\sion', 'node_straightness')
 

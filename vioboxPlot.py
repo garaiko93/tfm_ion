@@ -1,5 +1,4 @@
 # python script created from: https://github.com/ciortanmadalina/modality_tests/blob/master/violinboxplot_hybrid_axes.ipynb
-
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -313,6 +312,7 @@ def violinboxplot(data, x=None, y=None, labels=None, outliers=True,
     data, labels = prepareData(data, labels)
     if ax == None:
         plt.figure(figsize=(16, len(data) * 0.5))
+        # plt.figure(figsize=(16, len(data)*1.5))
         ax = plt.gca()
     plotData(data, ax, logPercentile)
     if labels is not None:  # set labels
@@ -320,6 +320,7 @@ def violinboxplot(data, x=None, y=None, labels=None, outliers=True,
     plt.title(title) if logPercentile is None else plt.suptitle(title)
     plt.tight_layout()
     sns.despine()
+
 
 # Let's see plot function on the datasets presented above:
 # plt.figure(figsize=(10,4))

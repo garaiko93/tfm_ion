@@ -1,37 +1,142 @@
 import matplotlib as mpl
 mpl.use('agg')
-mpl.use('TkAgg')
+# mpl.use('TkAgg')
 import matplotlib.pyplot as plt
 import pickle
+import pandas as pd
 import tkinter
 
 # functions from other scripts
 from vioboxPlot import violinboxplot
 
 # -----------------------------------------------------------------------------
-# DATA PREPARATION TO PLOT
+# PLOT OF DICTIONARY SHAPE ATTRIBUTES
 # -----------------------------------------------------------------------------
-data_to_plot = []
-x_axis = []
-# for area in ['luzern', 'bern', 'zurich_kreis', 'lausanne', 'lugano', 'stgallen']:
-# for area in ['sion', 'linthal', 'frutigen', 'neuchatel', 'zermatt', 'locarno']:
-for area in ['sion', 'linthal', 'frutigen', 'neuchatel', 'zermatt', 'locarno', 'luzern', 'bern',
-             'zurich_kreis', 'lausanne', 'lugano', 'stgallen']:
-    study_area_dir= r"C:/Users/Ion/TFM/data/study_areas/" + str(area)
-    file = open(str(study_area_dir) + "/attr_node_straightness.pkl", 'rb')
-    nodes_betw = pickle.load(file)
+# DATA PREPARATION TO PLOT
+def data_setup(study_areas, attr_name, plot_title, list_areas):
+    if list_areas == 'All':
+        areas = ['sion', 'linthal', 'frutigen', 'neuchatel', 'zermatt', 'locarno', 'luzern', 'bern',
+                 'zurich_kreis', 'lausanne', 'lugano', 'stgallen']
+    elif list_areas == 'Rural':
+        areas = ['sion', 'linthal', 'frutigen', 'neuchatel', 'zermatt', 'locarno']
+    elif list_areas == 'Urban':
+        areas = ['luzern', 'bern', 'zurich_kreis', 'lausanne', 'lugano', 'stgallen']
+    else:
+        raise Exception('list_areas was not well defined (All, Urban or Rural)')
 
-    data = list(nodes_betw.values())
-    data_to_plot.append(data)
-    x_axis.append(area)
+    data_to_plot = []
+    x_axis = []
+    for area in areas:
+        study_area_dir = str(study_areas) + '/' + str(area)
+        file = open(str(study_area_dir) + "/attr_" + str(attr_name) + ".pkl", 'rb')
+        attr_dict = pickle.load(file)
 
+        data = list(attr_dict.values())
+        data_to_plot.append(data)
+        x_axis.append(area)
+
+    plt.figure(figsize=(16, len(data_to_plot)*1.5))
+
+    if attr in ['edge_betweenness', 'node_betweenness']:
+        logPercentile = 0.9
+        outliers = True
+        ax = plt.gca()
+    elif attr in ['edge_load_centrality']:
+        logPercentile = 0.9
+        outliers = True
+        ax = plt.gca()
+        ax.set_xscale('log')
+    elif attr in ['clustering']:
+        logPercentile = None
+        outliers = True
+        ax = plt.gca()
+        ax.set_xscale('log')
+    else:
+        logPercentile = None
+        outliers = True
+        ax = plt.gca()
+
+    # ax = plt.gca()
+    violinboxplot(data_to_plot, labels=x_axis, ax=ax, showModes=True, showCounts=True, outliers=outliers,
+                  title=str(plot_title) + " - " + str(list_areas) + " Study Areas", logPercentile=logPercentile)
+    plt.savefig(r'C:/Users/Ion/TFM/data/attribute_plots/' + str(list_areas) + '/' + str(attr_name) + '.png')
+    print('Plot saved: ' + str(list_areas) + ' ' + str(attr_name))
+
+
+attr_dict = {
+    'avg_degree_connect': 'Average degree connectivity',
+    'avg_neighbor_degree': 'Average Neighbour Degree',
+    'clustering': 'Clustering Coefficient', #is not useful
+    'degree_centrality': 'Degree of Centrality',
+    'eccentricity': 'Eccentricity',
+    'edge_betweenness': 'Edge Betweenness Centrality',
+    'edge_load_centrality': 'Edge Load Centrality',
+    'node_betweenness': 'Node Betweenness Centrality',
+    'node_closeness_length': 'Node Closeness Centrality by Distance',
+    'node_closeness_time': 'Node Closeness Centrality by Time',
+    'node_load_centrality': 'Node Load Centrality',
+    'node_straightness': 'Node Straightness Centrality'
+}
+
+# attr = 'clustering'
+# env = 'Urban'
+# data_setup(r'C:/Users/Ion/TFM/data/study_areas/', attr, attr_dict[attr], env)
+
+for env in ['All', 'Rural', 'Urban']:
+    for attr in list(attr_dict):
+        data_setup(r'C:/Users/Ion/TFM/data/study_areas/', attr, attr_dict[attr], env)
+
+
+# -----------------------------------------------------------------------------
+# PLOT OF INTEGER ATTRIBUTES
+# -----------------------------------------------------------------------------
+
+study_area_dir = r'C:/Users/Ion/TFM/data/study_areas'
+# attr_df = pd.read_csv(str(study_area_dir) + '/' + 'attribute_table.csv', sep=",", index_col='attributes', dtype=object)
+attr_df = pd.read_csv(str(study_area_dir) + '/' + 'attribute_table_AVG_T.csv', sep=",", index_col='study_area', dtype=object)
+int_attr = ['network_distance',
+            'population',
+            'trips',
+            'n_intersection',
+            'node_d_km',
+            'intersection_d_km',
+            'edge_d_km',
+            'circuity_avg',
+            'edge_d_km']
+
+rural = ['sion', 'linthal', 'frutigen', 'neuchatel', 'zermatt', 'locarno', 'plateau']
+urban = ['luzern', 'bern', 'zurich_kreis', 'lausanne', 'lugano', 'stgallen']
+all = rural + urban
+
+rural_df = attr_df.loc[rural]
+urban_df = attr_df.loc[urban]
+all_df = attr_df.loc[all]
+
+for df in [rural_df, urban_df, all_df]:
+    for attr in int_attr:
+        list_values = [int(d) for d in attr_df[attr].tolist()]
+        labels = df.index
+
+rural = ['sion', 'linthal', 'frutigen', 'neuchatel', 'zermatt', 'locarno', 'plateau']
+list_values = [float(d) for d in rural_df['edge_d_km'].tolist()]
+
+ax = plt.gca()
+plt.plot(rural, list_values)
+
+import numpy as np
+x = np.arange(1,len(rural),1)
+y = np.array([20,21,22,23])
+my_xticks = ['John','Arnold','Mavis','Matt']
+plt.xticks(x, rural)
+plt.plot(x, list_values)
+plt.show()
 # -----------------------------------------------------------------------------
 # VIOBOXPLOT FUNCTION CALL
 # -----------------------------------------------------------------------------
-plt.figure(figsize=(10,4))
-ax = plt.gca()
-violinboxplot(data_to_plot, labels=x_axis, showModes=True, showCounts=True,
-              title="All Study Areas - Node Straightness Centrality")
+# plt.figure(figsize=(10,4))
+# ax = plt.gca()
+# violinboxplot(data_to_plot, labels=x_axis, showModes=True, showCounts=True,
+#               title="All Study Areas - Node Straightness Centrality")
 
 
 # plt.figure(figsize=(10,4))
