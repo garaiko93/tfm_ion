@@ -90,3 +90,11 @@ def save():
         print('asdf')
 
 save()
+
+
+gdf = gpd.read_file(r"C:/Users/Ion/TFM/data/study_areas/chur/scenarios.shp")
+chur = gdf
+
+
+file = open(r'C:/Users/Ion/TFM/data/network_graphs/ch_nodes_dict2056.pkl', 'rb')
+nodes_dict = pickle.load(file)

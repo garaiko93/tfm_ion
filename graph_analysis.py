@@ -32,9 +32,7 @@ def save_attr_df(attr_df, study_area_dir, attr_avg_df=None, attr_avg_dfT=None):
     else:
         print(datetime.datetime.now(), 'For test purposes attribute dataframes were not saved.')
 
-
-def straightness(nodes_dict, new_G):
-    print(datetime.datetime.now(), 'Calculating node_straightness of graph ...')
+def create_igraph(new_G):
     # create igraph with networkx graph info
     g = ig.Graph(directed=True)
     for node in new_G.nodes():
@@ -45,6 +43,57 @@ def straightness(nodes_dict, new_G):
                    way_id=edge[2]['way_id'],
                    modes=edge[2]['modes'],
                    length=edge[2]['length'])
+    return g
+
+def btw_acc(new_G, chG):
+    # import nodes into study area: new_G.nodes()
+    # import graph of full ch and transform into igraph
+    # iterate over all pair of nodes in the study areas nodes by a maximum time
+    print(datetime.datetime.now(), 'Calculating lim_edge_betweenness of graph ...')
+    time_lim = 1200
+    g = create_igraph(chG)
+    # g.edge_betweenness(directed=True, cutoff=None, weights='time')
+
+    edge_btw_acc = {}
+    for j in new_G.nodes():
+        # if n % 20 == 0:
+        #     print(datetime.datetime.now(), n)
+
+        for k in new_G.nodes():
+            edge_dict = {}
+            if j == k:
+                continue
+            paths = g.get_shortest_paths(v=j, to=k, weights='time', mode='OUT', output="epath")
+            for path in paths:
+                path_time = 0
+                for i in path:
+                    path_time += g.es[i]['time']
+                    if path_time >= time_lim:
+                        break
+
+                    if not edge_dict.get(i):
+                        edge_dict[i] = 1
+                    else:
+                        edge_dict[i] += 1
+
+            for link in list(edge_dict):
+                edge_dict[link] = (edge_dict[link]/len(paths))*weight
+                if not edge_btw_acc.get(link):
+                    edge_btw_acc[link][0] = [edge_dict[link]]
+                    edge_btw_acc[link][1] = [edge_dict[link]]
+                else:
+                    edge_btw_acc[link][0] += weight
+                    edge_btw_acc[link][1] = edge_btw_acc[link][1].append(edge_dict[link])
+
+    for link in list(edge_btw_acc):
+        edge_btw_acc[link] = (1/(edge_btw_acc[link][0]))*sum(edge_btw_acc[link][1])
+
+    return edge_btw_acc
+
+def straightness(nodes_dict, new_G):
+    print(datetime.datetime.now(), 'Calculating node_straightness of graph ...')
+    g = create_igraph(new_G)
+
     n = 0
     node_straightness = {}
     for i in g.vs['name']:
@@ -130,7 +179,7 @@ def filter_graph(study_area_dir, graph_file):
         # Check if this area was filtered already by checking existance of done.txt
         if os.path.isfile(str(shp_path) + "/" + area + "_MultiDiGraph_largest.gpickle"):
             print(datetime.datetime.now(), 'Graph already exists')
-            attr_df = topology_attributes(study_area_dir, area, attr_df, study_area_shp, nodes_dict)
+            attr_df = topology_attributes(study_area_dir, area, attr_df, study_area_shp, nodes_dict, G)
             continue
         print(datetime.datetime.now(), 'Creating graph for area ...')
         new_G = cut_graph(G, shp_path, 'MultiDiGraph', area, study_area_shp)
@@ -150,7 +199,7 @@ def filter_graph(study_area_dir, graph_file):
         gdf.to_file(str(shp_path) + "/" + str(area) + "_network.shp")
 
         # Calculate attributes for new areas that has now the graph filtered
-        attr_df = topology_attributes(study_area_dir, area, attr_df, study_area_shp, nodes_dict)
+        attr_df = topology_attributes(study_area_dir, area, attr_df, study_area_shp, nodes_dict, G)
         print('----------------------------------------------------------------------')
     # Manipulate attributes table
     take_avg(attr_df, study_area_dir)
@@ -160,7 +209,7 @@ def filter_graph(study_area_dir, graph_file):
 
 
 # NETWORK ANALYSIS ATTRIBUTES
-def topology_attributes(study_area_dir, area, attr_df, study_area_shp, nodes_dict):
+def topology_attributes(study_area_dir, area, attr_df, study_area_shp, nodes_dict, G):
     # graph_file = r'C:\Users\Ion\TFM\data\network_graphs\test'
     #     # study_area_dir = r'C:\Users\Ion\TFM\data\study_areas'
     #     # area = 'bern'
@@ -191,6 +240,7 @@ def topology_attributes(study_area_dir, area, attr_df, study_area_shp, nodes_dic
                   'avg_shortest_path_duration',
                   'node_betweenness*',
                   'edge_betweenness',
+                  'lim_edge_betweenness',
                   'node_straightness',
                   'node_closeness_time*',
                   'node_closeness_length*',
@@ -304,17 +354,22 @@ def topology_attributes(study_area_dir, area, attr_df, study_area_shp, nodes_dic
         edge_betw_centr_data = dict_data(edge_betw_centr, shp_path, 'edge_betweenness')
         attr_df.at['edge_betweenness', area] = edge_betw_centr_data
         save_attr_df(attr_df, study_area_dir)
+    if pd.isnull(attr_df.loc['lim_edge_betweenness', area]):
+        lim_edge_betw_centr = btw_acc(new_G, G)
+        lim_edge_betw_centr_data = dict_data(lim_edge_betw_centr, shp_path, 'lim_edge_betweenness')
+        attr_df.at['lim_edge_betweenness', area] = lim_edge_betw_centr_data
+        save_attr_df(attr_df, study_area_dir)
     # ----------------------------------------------------------------------
     # 7. CLOSENESS CENTRALITY: Of a node is the average length of the shortest path from the node to all other nodes
     if pd.isnull(attr_df.loc['node_closeness_time*', area]):
         node_close_time_centr = nx.closeness_centrality(new_diG, distance='time')
         node_close_centr_data = dict_data(node_close_time_centr, shp_path, 'node_closeness_time')
-        attr_df.at['node_closeness_time*', area] = node_close_time_centr
+        attr_df.at['node_closeness_time*', area] = node_close_centr_data
         save_attr_df(attr_df, study_area_dir)
     if pd.isnull(attr_df.loc['node_closeness_length*', area]):
         node_close_dist_centr = nx.closeness_centrality(new_diG, distance='length')
-        node_close_dist_centr = dict_data(node_close_dist_centr, shp_path, 'node_closeness_length')
-        attr_df.at['node_closeness_length*', area] = node_close_dist_centr
+        node_close_dist_data = dict_data(node_close_dist_centr, shp_path, 'node_closeness_length')
+        attr_df.at['node_closeness_length*', area] = node_close_dist_data
         save_attr_df(attr_df, study_area_dir)
 
     # ----------------------------------------------------------------------
@@ -355,7 +410,7 @@ def topology_attributes(study_area_dir, area, attr_df, study_area_shp, nodes_dic
 
     # ----------------------------------------------------------------------
     # NETWORK SHAPE ATTRIBUTES
-    # 10. EXCENTRICITY: maximum distance from v to all other nodes in G
+    # 10. ECCENTRICITY: maximum distance from v to all other nodes in G
     # Radius/Diameter of graph: radius is minimum eccentricity/The diameter is the maximum eccentricity.
     if pd.isnull(attr_df.loc['eccentricity', area]):
         eccentricity = nx.algorithms.distance_measures.eccentricity(new_G)
@@ -464,7 +519,8 @@ def take_avg(attr_df, study_area_dir):
 
                 # LIST ATTRIBUTES: [n, min, max, avg]
                 elif attr_df.index[i] in ['degree_centrality', 'avg_degree_connectivity', 'node_betweenness*',
-                                          'edge_betweenness', 'node_load_centrality', 'edge_load_centrality',
+                                          'edge_betweenness', 'lim_edge_betweenness', 'node_load_centrality',
+                                          'edge_load_centrality',
                                           'clustering*', 'eccentricity', 'node_closeness_time*',
                                             'node_closeness_length*', 'avg_neighbor_degree',
                                           'node_straightness', 'clustering_w*']:
@@ -505,6 +561,7 @@ def take_avg(attr_df, study_area_dir):
                   'avg_shortest_path_duration',
                   'node_betweenness*',
                   'edge_betweenness',
+                  'lim_edge_betweenness',
                   'node_straightness',
                   'node_closeness_time*',
                   'node_closeness_length*',
