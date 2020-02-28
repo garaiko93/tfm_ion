@@ -3,15 +3,20 @@ import geopandas as gpd
 from shapely.geometry import Point, Polygon
 import math
 import pandas as pd
-import folium
-import os
-from pyproj import Transformer
-from shapely.ops import cascaded_union
+import copy
+import itertools
+import ntpath
 
-def create_distrib(study_area_dir, grid_size, area):
-    area_path = str(study_area_dir) + "/" + str(area)
+def create_distrib(area_path, grid_size, create_map=True):
+    area = ntpath.split(area_path)[1]
+    study_area_dir = ntpath.split(area_path)[0]
+
     study_area_shp = gpd.read_file(str(area_path) + "/" + str(area) + ".shp").iloc[0]['geometry']
-    area_fac = pd.read_csv(str(area_path) + "/population_db/loc_home.csv")
+    area_pop = pd.read_csv(str(area_path) + "/population_db/loc_home.csv")
+    area_empl = pd.read_csv(str(area_path) + "/population_db/loc_work.csv")
+    area_shop = pd.read_csv(str(area_path) + "/population_db/loc_shop.csv")
+    area_edu = pd.read_csv(str(area_path) + "/population_db/loc_education.csv")
+    area_leisure = pd.read_csv(str(area_path) + "/population_db/loc_leisure.csv")
 
     # drop_rows = []
     # for index, row in fac_df.iterrows():
@@ -22,12 +27,26 @@ def create_distrib(study_area_dir, grid_size, area):
     # area_fac = fac_df.drop(drop_rows, axis=0)
     # print(len(fac_df), len(area_fac))
 
-    # Found borders of the grid in 4 cardinal points
-    min_x = area_fac['x'].min()
-    min_y = area_fac['y'].min()
+    # Found borders of the grid in 4 cardinal points based on the shape file
+    cr = list(study_area_shp.exterior.coords)
 
-    max_x = area_fac['x'].max()
-    max_y = area_fac['y'].max()
+    xs = []
+    ys = []
+    for x, y in cr:
+        xs.append(x)
+        ys.append(y)
+
+    min_x = min(xs)
+    min_y = min(ys)
+    max_x = max(xs)
+    max_y = max(ys)
+
+
+    # min_x = area_fac['x'].min()
+    # min_y = area_fac['y'].min()
+    #
+    # max_x = area_fac['x'].max()
+    # max_y = area_fac['y'].max()
 
     # define origin of coordinates top-corner
     o_x = min_x - 50
@@ -40,96 +59,168 @@ def create_distrib(study_area_dir, grid_size, area):
 
     x = math.ceil(x_axis/grid_size) #rounds up the number
     y = abs(math.ceil(y_axis/grid_size)) #rounds up the number
-    m = [np.zeros([y,x]),np.zeros([y,x])]
-    print(y*x)
+    m = [np.zeros([y, x]), np.zeros([y, x])]
+    print(x, y, y*x)
 
-    for index, row in area_fac.iterrows():
-        x_coord = row['x'] - o_x
-        m_x = math.floor(x_coord / grid_size)
+    def create_m(m, fac_list, grid_size, o_x, o_y):
+        m_fac = copy.deepcopy(m)
+        for area_fac in fac_list:
+            for index, row in area_fac.iterrows():
+                x_coord = row['x'] - o_x
+                m_x = math.floor(x_coord / grid_size)
 
-        y_coord = o_y - row['y']
-        m_y = math.floor(y_coord / grid_size)
+                y_coord = o_y - row['y']
+                m_y = math.floor(y_coord / grid_size)
 
-        m[0][(m_y,m_x)] += row['n_persons']
+                m_fac[0][(m_y, m_x)] += row['n_persons']
+        return m_fac
+
+    m_pop = create_m(m, [area_pop], grid_size, o_x, o_y)
+    m_empl = create_m(m, [area_edu, area_empl], grid_size, o_x, o_y)
+    m_opt = create_m(m, [area_leisure, area_shop], grid_size, o_x, o_y)
 
     # create geodataframe with each square from matrix m
-    id = 0
+    id = itertools.count()
     m_df = pd.DataFrame(data=None, columns=['id', 'geometry'])
-    for i in range(0, len(m[0])):
-        for j in range(0, len(m[0][0])):
-            points_4326 = []
+    for i in range(len(m[0])):
+        for j in range(len(m[0][0])):
             points = [((o_x + (grid_size * j)), (o_y - (grid_size * i))),
-                      ((o_x + (grid_size * (j+1))), (o_y - (grid_size * i))),
-                      ((o_x + (grid_size * (j+1))), (o_y - (grid_size * (i+1)))),
-                      ((o_x + (grid_size * j)), (o_y - (grid_size * (i+1))))]
+                      ((o_x + (grid_size * (j + 1))), (o_y - (grid_size * i))),
+                      ((o_x + (grid_size * (j + 1))), (o_y - (grid_size * (i + 1)))),
+                      ((o_x + (grid_size * j)), (o_y - (grid_size * (i + 1))))]
             polygon = Polygon(points)
+
             # for the grid squares in the border of study area, for a less than 30% of coincidence, it is avoid
             # for larger than 30% coincidence, proportional density over a full coincidence square is assigned
             if polygon.intersects(study_area_shp):
                 percentage = study_area_shp.intersection(polygon).area / (grid_size ** 2)
-                m[1][i][j] = percentage
                 if percentage > 0.3:
-                    value = m[0][i][j] / percentage
+                    pop_value = m_pop[0][i][j] / percentage
+                    empl_value = m_empl[0][i][j] / percentage
+                    opt_value = m_opt[0][i][j] / percentage
                 else:
                     continue
             else:
-                m[1][i][j] = 0
+                pop_value = m_pop[0][i][j]
+                empl_value = m_empl[0][i][j]
+                opt_value = m_opt[0][i][j]
 
-            if m[0][i][j] == 0: continue
+            if m_pop[0][i][j] == 0 and m_empl[0][i][j] == 0 and m_opt[0][i][j] == 0:
+                continue
 
-            # transform coordinates system from epsg 2056 to epsg 4326
-            # transformer = Transformer.from_crs(2056, 4326)
-            # for pt in transformer.itransform(points):
-            #     points_4326.append((pt[1],pt[0]))
-            # poly_4326 = Polygon(points_4326)
             poly_2056 = Polygon(points)
-            # value = m[0][i][j]
-            new_row = {'id': str(id),
-                       'value': value,
-                       'geometry': poly_2056
+            centroid = poly_2056.centroid
+
+            new_row = {'id': str(next(id)),
+                       'pop': pop_value,
+                       'empl': empl_value,
+                       'opt': opt_value,
+                       'geometry': poly_2056,
+                       'centroid': [centroid.x, centroid.y]
                        }
             m_df = m_df.append(new_row, ignore_index=True)
-            id += 1
+    if create_map:
+        m_gdf = gpd.GeoDataFrame(m_df.loc[:, m_df.columns != 'centroid'])
+        m_gdf.to_file(str(area_path) + "/" + str(area) + '_' + "facility_distribution_" +
+                      str(grid_size) + "gs.shp")
 
-    m_gdf = gpd.GeoDataFrame(m_df)
-    m_gdf.to_file(r"C:/Users/Ion/TFM/data/study_areas/zurich_kreis/" + str(area) + "pop_distribution_" +
-                  str(grid_size) + "gs.shp")
-    # m_gdf.to_file(r"C:\Users\Ion\TFM\data\study_areas\zurich_kreis/output.json", driver="GeoJSON")
-
-    # create shp file with points in area
-    # point_list = []
-    # for index,row in area_fac.iterrows():
-    #     point = Point(row['x'], row['y'])
-    #     point_list.append(point)
-    # area_fac['geometry'] = point_list
-    #
-    # area_gdf = gpd.GeoDataFrame(area_fac)
-    # area_gdf.to_file(r"C:\Users\Ion\TFM\data\study_areas\zurich_small/home_points.shp")
-
-    # Initialize the map:
-    # map_name = str(area) + '_' + str(pct) + '_' + str(grid_size) + 'gs'
-    # map2 = folium.Map(location=[47.376155, 8.531508], zoom_start=12)
-    # # Add the color for the chloropleth:
-    # folium.Choropleth(
-    #     geo_data=r"C:\Users\Ion\TFM\data\study_areas\zurich_kreis/output.json",
-    #     # geo_data=m_gdf[['id', 'geometry']],
-    #     name='choropleth',
-    #     data=m_df,
-    #     columns=['id', 'value'],
-    #     key_on='feature.properties.id',
-    #     fill_color='YlOrRd',
-    #     fill_opacity=0.7,
-    #     line_opacity=0.2,
-    #     legend_name=map_name
-    # ).add_to(map2)
-    # # Save to html
-    # # map2.save(os.path.join(r"C:\Users\Ion\TFM\data\study_areas\zurich_small/", str(map_name) + '.html'))
-    # map2.save(os.path.join(r"C:\Users\Ion\TFM\data\study_areas\zurich_kreis/", str(map_name) + '1.shp'))
-    return m
+    # return m_df.loc[:, m_df.columns != 'geometry']
+    return m_df
 
 
-study_area_dir = r"C:/Users/Ion/TFM/data/study_areas"
-m = create_distrib(study_area_dir, 200, 'zurich_kreis')
+area_path = r"C:/Users/Ion/TFM/data/study_areas/zurich_kreis"
+m_df = create_distrib(area_path, 1000, True)
+
+
+# for area_fac in fac_list:
+#     c = itertools.count()
+#     counter = next(c)
+#     for index, row in area_fac.iterrows():
+#         x_coord = row['x'] - o_x
+#         m_x = math.floor(x_coord / grid_size)
+#
+#         y_coord = o_y - row['y']
+#         m_y = math.floor(y_coord / grid_size)
+#
+#         m[counter][(m_y, m_x)] += row['n_persons']
+#
+#     if create_map:
+#         # create geodataframe with each square from matrix m
+#         c = itertools.count()
+#         id = 0
+#         m_df = pd.DataFrame(data=None, columns=['id', 'geometry'])
+#         for i in range(len(m[counter])):
+#             for j in range(len(m[counter][0])):
+#                 points_4326 = []
+#                 points = [((o_x + (grid_size * j)), (o_y - (grid_size * i))),
+#                           ((o_x + (grid_size * (j+1))), (o_y - (grid_size * i))),
+#                           ((o_x + (grid_size * (j+1))), (o_y - (grid_size * (i+1)))),
+#                           ((o_x + (grid_size * j)), (o_y - (grid_size * (i+1))))]
+#                 polygon = Polygon(points)
+#                 # for the grid squares in the border of study area, for a less than 30% of coincidence, it is avoid
+#                 # for larger than 30% coincidence, proportional density over a full coincidence square is assigned
+#                 if polygon.intersects(study_area_shp):
+#                     percentage = study_area_shp.intersection(polygon).area / (grid_size ** 2)
+#                     m[len(fac_list)][i][j] = percentage
+#                     if percentage > 0.3:
+#                         value = m[0][i][j] / percentage
+#                     else:
+#                         continue
+#                 else:
+#                     m[len(fac_list)][i][j] = 0 #its len(fac_list) to ensure the intersection % is in the last layer of m
+#
+#                 if m[counter][i][j] == 0: continue
+
+        # transform coordinates system from epsg 2056 to epsg 4326
+        # transformer = Transformer.from_crs(2056, 4326)
+        # for pt in transformer.itransform(points):
+        #     points_4326.append((pt[1],pt[0]))
+        # poly_4326 = Polygon(points_4326)
+#         poly_2056 = Polygon(points)
+#         # value = m[0][i][j]
+#         new_row = {'id': str(id),
+#                    'value': value,
+#                    'geometry': poly_2056
+#                    }
+#         m_df = m_df.append(new_row, ignore_index=True)
+#         id += 1
+#
+# m_gdf = gpd.GeoDataFrame(m_df)
+# m_gdf.to_file(r"C:/Users/Ion/TFM/data/study_areas/zurich_kreis/" + str(area) + "pop_distribution_" +
+#               str(grid_size) + "gs.shp")
+# m_gdf.to_file(r"C:\Users\Ion\TFM\data\study_areas\zurich_kreis/output.json", driver="GeoJSON")
+
+# create shp file with points in area
+# point_list = []
+# for index,row in area_fac.iterrows():
+#     point = Point(row['x'], row['y'])
+#     point_list.append(point)
+# area_fac['geometry'] = point_list
+#
+# area_gdf = gpd.GeoDataFrame(area_fac)
+# area_gdf.to_file(r"C:\Users\Ion\TFM\data\study_areas\zurich_small/home_points.shp")
+
+# Initialize the map:
+# map_name = str(area) + '_' + str(pct) + '_' + str(grid_size) + 'gs'
+# map2 = folium.Map(location=[47.376155, 8.531508], zoom_start=12)
+# # Add the color for the chloropleth:
+# folium.Choropleth(
+#     geo_data=r"C:\Users\Ion\TFM\data\study_areas\zurich_kreis/output.json",
+#     # geo_data=m_gdf[['id', 'geometry']],
+#     name='choropleth',
+#     data=m_df,
+#     columns=['id', 'value'],
+#     key_on='feature.properties.id',
+#     fill_color='YlOrRd',
+#     fill_opacity=0.7,
+#     line_opacity=0.2,
+#     legend_name=map_name
+# ).add_to(map2)
+# # Save to html
+# # map2.save(os.path.join(r"C:\Users\Ion\TFM\data\study_areas\zurich_small/", str(map_name) + '.html'))
+# map2.save(os.path.join(r"C:\Users\Ion\TFM\data\study_areas\zurich_kreis/", str(map_name) + '1.shp'))
+# return m_pop, m_empl, m_opt
+
 
 
 # study_area_gdf.iloc[0]['geometry']

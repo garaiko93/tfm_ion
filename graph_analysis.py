@@ -6,13 +6,17 @@ import networkx as nx
 import igraph as ig
 import copy
 import os
+import math
 import ast
 import osmnx as ox
+from scipy import spatial
+from progressbar import Percentage, ProgressBar, Bar, ETA
 from shapely.geometry import Point
 import datetime
 
 # functions from other scripts
 from network_graph import check_iso_graph
+from population_distribution import create_distrib
 
 
 def save_attr_df(attr_df, study_area_dir, attr_avg_df=None, attr_avg_dfT=None):
@@ -34,6 +38,7 @@ def save_attr_df(attr_df, study_area_dir, attr_avg_df=None, attr_avg_dfT=None):
 
 def create_igraph(new_G):
     # create igraph with networkx graph info
+    print(datetime.datetime.now(), 'Creating graph with igraph ...')
     g = ig.Graph(directed=True)
     for node in new_G.nodes():
         g.add_vertex(name=str(node))
@@ -45,13 +50,67 @@ def create_igraph(new_G):
                    length=edge[2]['length'])
     return g
 
-def btw_acc(new_G, chG):
+def btw_acc(new_G, chG, area_path, nodes_dict, grid_size=500):
     # import nodes into study area: new_G.nodes()
     # import graph of full ch and transform into igraph
     # iterate over all pair of nodes in the study areas nodes by a maximum time
     print(datetime.datetime.now(), 'Calculating lim_edge_betweenness of graph ...')
     time_lim = 1200
-    g = create_igraph(chG)
+    grid_size=250
+    # g = create_igraph(chG)
+    g = create_igraph(new_G)
+
+    # call function to create df with grid areas defined in df with pop, empl and opt values of study area
+    m_df = create_distrib(area_path, grid_size, False)
+
+    # find closest node of centroid:
+    # Build tree for KDTree nearest neighbours search, in G only start and end nodes are included
+    G_nodes = list(new_G.nodes)
+    G_lonlat = []
+    for node in G_nodes:
+        lonlat = nodes_dict[str(node)]
+        G_lonlat.append(lonlat)
+    print(datetime.datetime.now(), 'KDTree has: ' + str(len(G_lonlat)) + ' nodes.')
+
+    tree = spatial.KDTree(G_lonlat)
+    for index, row in m_df.iterrows():
+        id = row['id']
+        centroid = Point(row['centroid'][0], row['centroid'][1])
+
+        nn = tree.query(centroid)
+        coord = G_lonlat[nn[1]]
+        closest_node_id = int(
+            list(nodes_dict.keys())[list(nodes_dict.values()).index((coord[0], coord[1]))])
+        m_df.at[index, 'closest_node'] = int(closest_node_id)
+
+    # add columns of ACC empl:
+    # for facil in ['pop', 'empl', 'opt']:
+    for facil in ['empl']:
+        print(datetime.datetime.now(), 'Calculating ' + str(facil) + ' accessibility ...')
+        for index, row in m_df.iterrows():
+            j = str(int(row['closest_node']))
+            acc_list = []
+            for index2, row2 in m_df.iterrows():
+                k = str(int(row2['closest_node']))
+                if j == k:
+                    continue
+                weight = row2[facil] #iterate over pop, empl, opt
+
+                # find sp and sum time
+                paths = g.get_shortest_paths(v=j, to=k, weights='time', mode='OUT', output="epath")
+                path_time = 0
+                for i in paths[0]:
+                    path_time += g.es[i]['time']
+
+                # define impedance function
+                acc = weight * math.exp(-0.05*path_time)
+                acc_list.append(acc)
+            m_df.at[index, 'acc_' + str(facil)] = sum(acc_list)
+
+    m_gdf = gpd.GeoDataFrame(m_df.loc[:, m_df.columns != 'centroid'])
+    m_gdf.to_file(str(shp_path) + "/" + str(area) + '_' + "facility_distribution_" +
+                  str(grid_size) + "gs.shp")
+
     # g.edge_betweenness(directed=True, cutoff=None, weights='time')
 
     edge_btw_acc = {}
@@ -355,7 +414,7 @@ def topology_attributes(study_area_dir, area, attr_df, study_area_shp, nodes_dic
         attr_df.at['edge_betweenness', area] = edge_betw_centr_data
         save_attr_df(attr_df, study_area_dir)
     if pd.isnull(attr_df.loc['lim_edge_betweenness', area]):
-        lim_edge_betw_centr = btw_acc(new_G, G)
+        lim_edge_betw_centr = btw_acc(new_G, G, shp_path, nodes_dict)
         lim_edge_betw_centr_data = dict_data(lim_edge_betw_centr, shp_path, 'lim_edge_betweenness')
         attr_df.at['lim_edge_betweenness', area] = lim_edge_betw_centr_data
         save_attr_df(attr_df, study_area_dir)

@@ -1,6 +1,8 @@
 import pandas as pd
 import os
 import gzip
+import networkx as nx
+import datetime
 
 trips =pd.read_csv('C:/User')
 
@@ -95,6 +97,50 @@ save()
 gdf = gpd.read_file(r"C:/Users/Ion/TFM/data/study_areas/chur/scenarios.shp")
 chur = gdf
 
+import pickle
+import datetime
+import igraph as ig
+from scipy import spatial
+from shapely.geometry import Point
+import networkx as nx
 
 file = open(r'C:/Users/Ion/TFM/data/network_graphs/ch_nodes_dict2056.pkl', 'rb')
 nodes_dict = pickle.load(file)
+new_G = nx.read_gpickle(r'C:/Users/Ion/TFM/data/study_areas/zurich_kreis/zurich_kreis_MultiDiGraph_largest.gpickle')
+shp_path = r'C:/Users/Ion/TFM/data/study_areas/zurich_kreis'
+
+def btw_acc(new_G, chG, area_path, nodes_dict):
+    # import nodes into study area: new_G.nodes()
+    # import graph of full ch and transform into igraph
+    # iterate over all pair of nodes in the study areas nodes by a maximum time
+    print(datetime.datetime.now(), 'Calculating lim_edge_betweenness of graph ...')
+    time_lim = 1200
+    g = create_igraph(chG)
+
+    # call function to create df with grid areas defined in df with pop, empl and opt values of study area
+    m_df = create_distrib(area_path, 200, False)
+
+    # find closest node of centroid:
+    # Build tree for KDTree nearest neighbours search, in G only start and end nodes are included
+    # OPTION 3: input only nodes in largest network in G
+    G_nodes = list(new_G.nodes)
+    G_lonlat = []
+    for node in G_nodes:
+        lonlat = nodes_dict[str(node)]
+        G_lonlat.append(lonlat)
+    print(datetime.datetime.now(), 'KDTree has: ' + str(len(G_lonlat)) + ' nodes.')
+
+    tree = spatial.KDTree(G_lonlat)
+    for index, row in m_df.iterrows():
+        id = row['id']
+        centroid = Point(row['centroid'][0], row['centroid'][1])
+
+        nn = tree.query(centroid)
+        coord = G_lonlat[nn[1]]
+        closest_node_id = int(
+            list(nodes_dict.keys())[list(nodes_dict.values()).index((coord[0], coord[1]))])
+        m_df.at[index, 'closest_node'] = int(closest_node_id)
+
+    # add column of ACC empl:
+    for index, row in m_df.iterrows():
+        row['x'] - o_
