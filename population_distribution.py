@@ -6,8 +6,10 @@ import pandas as pd
 import copy
 import itertools
 import ntpath
+import datetime
 
 def create_distrib(area_path, grid_size, create_map=True):
+    print(datetime.datetime.now(), 'Computing facility distribution and exporting as dataframe for every grid area ...')
     area = ntpath.split(area_path)[1]
     study_area_dir = ntpath.split(area_path)[0]
 
@@ -60,7 +62,7 @@ def create_distrib(area_path, grid_size, create_map=True):
     x = math.ceil(x_axis/grid_size) #rounds up the number
     y = abs(math.ceil(y_axis/grid_size)) #rounds up the number
     m = [np.zeros([y, x]), np.zeros([y, x])]
-    print(x, y, y*x)
+    print(datetime.datetime.now(), 'Number of grids composing the grid: ' + str(y*x))
 
     def create_m(m, fac_list, grid_size, o_x, o_y):
         m_fac = copy.deepcopy(m)
@@ -128,8 +130,8 @@ def create_distrib(area_path, grid_size, create_map=True):
     return m_df
 
 
-area_path = r"C:/Users/Ion/TFM/data/study_areas/zurich_kreis"
-m_df = create_distrib(area_path, 1000, True)
+# area_path = r"C:/Users/Ion/TFM/data/study_areas/zurich_kreis"
+# m_df = create_distrib(area_path, 1000, True)
 
 
 # for area_fac in fac_list:

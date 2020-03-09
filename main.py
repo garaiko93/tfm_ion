@@ -90,8 +90,9 @@ print(datetime.datetime.now(), 'Main script begins ...')
 #                   (i.e.: r"C:\Users\...\network\graph.gpickle")
 # '''
 
-filter_graph(r"C:\Users\Ion\TFM\data\study_areas",
-             r"C:\Users\Ion\TFM\data\network_graphs")
+filter_graph(r"C:/Users/Ion/TFM/data/study_areas",
+             r"C:/Users/Ion/TFM/data/network_graphs",
+             'test_area')
 
 # parser = argparse.ArgumentParser(description='Cut and analyse a graph for a certain input area.')
 # parser.add_argument('--study-areas', dest="study_areas", help='path to study areas')
