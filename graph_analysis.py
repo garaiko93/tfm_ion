@@ -11,7 +11,7 @@ import ast
 import osmnx as ox
 from scipy import spatial
 from progressbar import Percentage, ProgressBar, Bar, ETA
-from shapely.geometry import Point
+from shapely.geometry import Point, Polygon, LinearRing
 import datetime
 import ntpath
 
@@ -46,7 +46,7 @@ def create_igraph(new_G):
     for edge in new_G.edges.data():
         g.add_edge(str(edge[0]), str(edge[1]),
                    time=edge[2]['time'],
-                   way_id=edge[2]['way_id'],
+                   name=str(edge[2]['way_id']),
                    modes=edge[2]['modes'],
                    length=edge[2]['length'])
     return g
@@ -58,13 +58,14 @@ def btw_acc(new_G, chG, area_path, area, nodes_dict, attr_df, grid_size=500):
     # iterate over all pair of nodes in the study areas nodes by a maximum time
     # file = open(r'C:/Users/Ion/TFM/data/network_graphs/ch_nodes_dict2056.pkl', 'rb')
     # nodes_dict = pickle.load(file)
-    # new_G = nx.read_gpickle(r'C:/Users/Ion/TFM/data/study_areas/zurich_kreis/zurich_kreis_MultiDiGraph_largest.gpickle')
-    # area_path = r'C:/Users/Ion/TFM/data/study_areas/zurich_kreis'
-    # area = 'zurich_kreis'
+    # chG = nx.read_gpickle(r'C:/Users/Ion/TFM/data/study_areas/test_area/test_area_MultiDiGraph5k_largest.gpickle')
+    # new_G = nx.read_gpickle(r'C:/Users/Ion/TFM/data/study_areas/test_area/test_area_MultiDiGraph_largest.gpickle')
+    # area_path = r'C:/Users/Ion/TFM/data/study_areas/test_area'
+    # area = 'test_area'
 
     print(datetime.datetime.now(), 'Calculating lim_edge_betweenness of graph ...')
     time_lim = 1200 #seconds
-    grid_size = 20 #meters
+    grid_size = 300 #meters
     g = create_igraph(chG)
     # g = create_igraph(new_G)
 
@@ -128,6 +129,8 @@ def btw_acc(new_G, chG, area_path, area, nodes_dict, attr_df, grid_size=500):
     # focuses on the potential to reach opportunities through each element of the
     # network
     def metrics_comput(m_df, facil, other_facil):
+        # facil = 'pop'
+        # other_facil = 'empl'
         cPop_li = {}
         cApop_li = {}
         print(datetime.datetime.now(), 'Calculating ' + str(facil) + ' betweenness-accessibility metric ...')
@@ -152,10 +155,11 @@ def btw_acc(new_G, chG, area_path, area, nodes_dict, attr_df, grid_size=500):
                 for path in paths:
                     for i in path:
                         path_time += g.es[i]['time']
-                        if not way_sp.get(i):
-                            way_sp[i] = 1
+                        way_id = g.es[i]['name']
+                        if not way_sp.get(way_id):
+                            way_sp[way_id] = 1
                         else:
-                            way_sp[i] += 1
+                            way_sp[way_id] += 1
 
                 # Compute weight and centrality value for every link in paths
                 f_tt = math.exp(-0.05 * path_time)  # define impedance function
@@ -163,7 +167,7 @@ def btw_acc(new_G, chG, area_path, area, nodes_dict, attr_df, grid_size=500):
                 weight_Ca_facil = facil2_k * f_tt
 
                 for link in list(way_sp):
-                    c_pop = (way_sp[link]/len(paths)) * weight_C_facil
+                    c_pop = (way_sp[link] / len(paths)) * weight_C_facil
                     cA_pop = (way_sp[link] / len(paths)) * weight_Ca_facil
                     if not cPop_li.get(link):
                         cPop_li[link] = [c_pop]
@@ -182,7 +186,13 @@ def btw_acc(new_G, chG, area_path, area, nodes_dict, attr_df, grid_size=500):
         tot_pop = m_df[facil].sum()
         tot_acc = m_df['acc_' + str(facil)].sum()
 
-        links_gdf = gpd.read_file(str(area_path) + "/" + str(area) + "_network.shp")
+        # Load geodataframe with every link of network to add btw-acc values
+        if os.path.isfile(str(area_path) + "/" + str(area) + "_btw_acc.shp"):
+            links_gdf = gpd.read_file(str(area_path) + "/" + str(area) + "_btw_acc.shp")
+        else:
+            links_gdf = gpd.read_file(str(area_path) + "/" + str(area) + "_network_5k.shp")
+
+        links_gdf['btw_check'] = 0
         links_gdf['btw_' + str(facil)] = 0
         links_gdf['btw_Acc_' + str(facil)] = 0
         for link in list(cPop_li):
@@ -190,14 +200,27 @@ def btw_acc(new_G, chG, area_path, area, nodes_dict, attr_df, grid_size=500):
             cApop_li[link] = sum(cApop_li[link])/tot_acc
 
             # update gdf of network with obtained values
-            ix = links_gdf.index[links_gdf['way_id'] == str(link)][0]
-            links_gdf.at[ix, 'btw_' + str(facil)] = cPop_li[link]
-            links_gdf.at[ix, 'btw_Acc_' + str(facil)] = cApop_li[link]
+            ix = links_gdf.index[links_gdf['way_id'] == link][0]
 
-        return cPop_li, cApop_li
+            # print(ix, link, cPop_li[link], cApop_li[link])
+            links_gdf.loc[ix, 'btw_' + str(facil)] = cPop_li[link]
+            links_gdf.loc[ix, 'btw_Acc_' + str(facil)] = cApop_li[link]
+            links_gdf.loc[ix, 'btw_check'] = 1
 
-    cPop_li, cApop_li = metrics_comput(m_df, 'pop', 'empl')
-    cEmpl_li, cAempl_li = metrics_comput(m_df, 'empl', 'pop')
+        links_gdf.to_file(str(area_path) + "/" + str(area) + "_btw_acc.shp")
+        return cPop_li, cApop_li, links_gdf
+
+    cPop_li, cApop_li, links_gdf = metrics_comput(m_df=m_df, facil='pop', other_facil='empl')
+    cEmpl_li, cAempl_li, links_gdf = metrics_comput(m_df=m_df, facil='empl', other_facil='pop')
+
+    # Clean links which did not take part into any shortest path of metric computation
+    indexes = []
+    for index3, row3 in links_gdf.iterrows():
+        btw_check = row3['btw_check']
+        if btw_check != 1:
+            indexes.append(index3)
+    links_gdf = links_gdf.drop(links_gdf.index[indexes])
+    links_gdf.to_file(str(area_path) + "/" + str(area) + "_btw_acc.shp")
 
     # Export dictionaries and save values in attributes table
     dict_data(cPop_li, area_path, 'btw_home_trip_production', area, attr_df)
@@ -242,22 +265,20 @@ def dict_data(dicti, shp_path, attrib_name, area, attr_df):
     filename = ntpath.split(attrib_name)[1].split('*')[0]
     study_area_dir = ntpath.split(shp_path)[0]
     if isinstance(dicti, dict):
+        len_val = len(dicti)
         min_val = min(dicti.values())
         max_val = max(dicti.values())
         avg_val = sum(dicti.values()) / len(dicti)
-        len_val = len(dicti)
-        value = [len_val, min_val, max_val, avg_val]
+        value = str([len_val, min_val, max_val, avg_val])
         with open(str(shp_path) + '/attr_' + str(filename) + '.pkl', 'wb') as f:
             pickle.dump(dicti, f, pickle.HIGHEST_PROTOCOL)
-        # print(datetime.datetime.now(), str(attrib_name) + ' (len,min,max,avg): ' +
-        #       str(len_val) + ', ' + str(min_val) + ', ' + str(max_val) + ', ' + str(avg_val))
-        # return str([len_val, min_val, max_val, avg_val])
     else:
         value = dicti
 
     attr_df.at[attrib_name, area] = value
     save_attr_df(attr_df, study_area_dir)
     print(datetime.datetime.now(), 'Attribute ' + str(attrib_name) + ' calculated: ' + str(value))
+    return attr_df
 
 def cut_graph(G, shp_path, graphtype, area, study_area_shp):
     new_G = copy.deepcopy(G)
@@ -310,13 +331,15 @@ def filter_graph(study_area_dir, graph_file, area_def=None):
         if area_def:
             area = area_def
         print(datetime.datetime.now(), area)
-        shp_path = str(study_area_dir) + "/" + area
-        study_area_shp = gpd.read_file(str(shp_path) + "/" + area + ".shp").iloc[0]['geometry']
+        shp_path = str(study_area_dir) + "/" + str(area)
+        study_area_shp = gpd.read_file(str(shp_path) + "/" + str(area) + ".shp").iloc[0]['geometry']
 
         # Check if this area was filtered already by checking existance of done.txt
-        if os.path.isfile(str(shp_path) + "/" + area + "_MultiDiGraph_largest.gpickle"):
+        if os.path.isfile(str(shp_path) + "/" + str(area) + "_network_5k.shp"):
             print(datetime.datetime.now(), 'Graph already exists')
-            attr_df, attributes = topology_attributes(study_area_dir, area, attr_df, study_area_shp, nodes_dict, G)
+            attr_df, attributes = topology_attributes(study_area_dir, area, attr_df, study_area_shp, nodes_dict)
+            # Manipulate attributes table
+            take_avg(attr_df, study_area_dir, attributes)
             if area_def:
                 break
             else:
@@ -325,38 +348,50 @@ def filter_graph(study_area_dir, graph_file, area_def=None):
         new_G = cut_graph(G, shp_path, 'MultiDiGraph', area, study_area_shp)
         new_diG = cut_graph(diG, shp_path, 'DiGraph', area, study_area_shp)
 
-        # Create shp file with final graph
-        print(datetime.datetime.now(), 'Creating shp file of network ...')
-        df = pd.DataFrame(data=None, columns=['way_id', 'start_node_id', 'end_node_id', 'geometry'])
-        for start, end, dup_way in list(new_G.edges):
-            new_row = {'way_id': new_G[start][end][dup_way]['way_id'],
-                       'start_node_id': start,
-                       'end_node_id': end,
-                       'geometry': geo.LineString([nodes_dict[str(start)], nodes_dict[str(end)]])
-                       }
-            df = df.append(new_row, ignore_index=True)
-        gdf = gpd.GeoDataFrame(df)
-        gdf.to_file(str(shp_path) + "/" + str(area) + "_network.shp")
+        poly_line = LinearRing(study_area_shp.exterior)
+        poly_line_offset = poly_line.buffer(5000, resolution=16, join_style=2, mitre_limit=1)
+        study_area_shp30k = Polygon(list(poly_line_offset.exterior.coords))
+        # study_area_shp30k = Polygon(study_area_shp.buffer(5000).exterior, [study_area_shp.exterior])
 
+        new_G30k = cut_graph(G, shp_path, 'MultiDiGraph5k', area, study_area_shp30k)
+        # create new graph with 30k buffer area
+
+        # Create shp file with final graph
+        def export_shp(new_G, filename):
+            print(datetime.datetime.now(), 'Creating shp file of network ...')
+            df = pd.DataFrame(data=None, columns=['way_id', 'start_node_id', 'end_node_id', 'geometry'])
+            for start, end, dup_way in list(new_G.edges):
+                new_row = {'way_id': new_G[start][end][dup_way]['way_id'],
+                           'start_node_id': start,
+                           'end_node_id': end,
+                           'geometry': geo.LineString([nodes_dict[str(start)], nodes_dict[str(end)]])
+                           }
+                df = df.append(new_row, ignore_index=True)
+            gdf = gpd.GeoDataFrame(df)
+            gdf.to_file(str(filename))
+
+        # Call function to export shp file
+        export_shp(new_G, str(shp_path) + "/" + str(area) + "_network.shp")
+        export_shp(new_G30k, str(shp_path) + "/" + str(area) + "_network_5k.shp")
         # Calculate attributes for new areas that has now the graph filtered
-        attr_df, attributes = topology_attributes(study_area_dir, area, attr_df, study_area_shp, nodes_dict, G)
+        attr_df, attributes = topology_attributes(study_area_dir, area, attr_df, study_area_shp, nodes_dict)
+        # Manipulate attributes table
+        take_avg(attr_df, study_area_dir, attributes)
         if area_def:
             break
         print('----------------------------------------------------------------------')
-    # Manipulate attributes table
-    take_avg(attr_df, study_area_dir, attributes)
-
     print('----------------------------------------------------------------------')
     print(datetime.datetime.now(), 'Process finished correctly: shp and graph files created in output directory')
 
 
 # NETWORK ANALYSIS ATTRIBUTES
-def topology_attributes(study_area_dir, area, attr_df, study_area_shp, nodes_dict, G):
+def topology_attributes(study_area_dir, area, attr_df, study_area_shp, nodes_dict):
     # graph_file = r'C:\Users\Ion\TFM\data\network_graphs\test'
     #     # study_area_dir = r'C:\Users\Ion\TFM\data\study_areas'
     #     # area = 'bern'
     new_G = nx.read_gpickle(str(study_area_dir) + '/' + area + '/' + area + '_MultiDiGraph_largest.gpickle')
     new_diG = nx.read_gpickle(str(study_area_dir) + '/' + area + '/' + area + '_DiGraph_largest.gpickle')
+    new_G30k = nx.read_gpickle(str(study_area_dir) + '/' + area + '/' + area + '_MultiDiGraph5k_largest.gpickle')
     shp_path = str(study_area_dir) + '/' + area
 
     # check if table is up to date with all attributes:
@@ -382,7 +417,7 @@ def topology_attributes(study_area_dir, area, attr_df, study_area_shp, nodes_dic
                   'avg_shortest_path_duration',
                   'node_betweenness*',
                   'edge_betweenness',
-                  'lim_edge_betweenness',
+                  # 'lim_edge_betweenness',
                   'btw_home_trip_production',
                   'btw_empl_trip_generation',
                   'btw_acc_trip_generation',
@@ -422,7 +457,7 @@ def topology_attributes(study_area_dir, area, attr_df, study_area_shp, nodes_dic
     # 0.Basic information of study area
     if pd.isnull(attr_df.loc['area', area]):
         area_val = study_area_shp.area
-        dict_data(area_val, shp_path, 'area', area, attr_df)
+        attr_df = dict_data(area_val, shp_path, 'area', area, attr_df)
         # attr_df.at['area', area] = area_val
         # save_attr_df(attr_df, study_area_dir)
         print(datetime.datetime.now(), 'Area of study area: ' + str(area_val))
@@ -437,14 +472,14 @@ def topology_attributes(study_area_dir, area, attr_df, study_area_shp, nodes_dic
             sum_deg += deg
             count_deg += 1
         avg_deg = sum_deg/count_deg
-        dict_data(avg_deg, shp_path, 'avg_degree', area, attr_df)
+        attr_df = dict_data(avg_deg, shp_path, 'avg_degree', area, attr_df)
         # attr_df.at['avg_degree', area] = avg_deg
         # save_attr_df(attr_df, study_area_dir)
         print(datetime.datetime.now(), 'Average degree(edges adj per node): ' + str(avg_deg))
     # avg_neighbour_degree:  average degree of the neighborhood of each node
     if pd.isnull(attr_df.loc['avg_neighbor_degree', area]):
         avg_neighbor_degree = nx.average_neighbor_degree(new_G)
-        dict_data(avg_neighbor_degree, shp_path, 'avg_neighbor_degree', area, attr_df)
+        attr_df = dict_data(avg_neighbor_degree, shp_path, 'avg_neighbor_degree', area, attr_df)
         # avg_neighbor_degree_data = dict_data(avg_neighbor_degree, shp_path, 'avg_neighbor_degree')
         # attr_df.at['avg_neighbor_degree', area] = avg_neighbor_degree_data
         # save_attr_df(attr_df, study_area_dir)
@@ -452,7 +487,7 @@ def topology_attributes(study_area_dir, area, attr_df, study_area_shp, nodes_dic
     # 2. DEGREE OF CENTRALITY: The degree centrality for a node v is the fraction of nodes it is connected to (normalized)
     if pd.isnull(attr_df.loc['degree_centrality', area]):
         degree_centr = nx.algorithms.degree_centrality(new_G)
-        dict_data(degree_centr, shp_path, 'degree_centrality', area, attr_df)
+        attr_df = dict_data(degree_centr, shp_path, 'degree_centrality', area, attr_df)
 
         # degree_centr_data = dict_data(degree_centr, shp_path, 'degree_centrality')
         # attr_df.at['degree_centrality', area] = degree_centr_data
@@ -461,7 +496,7 @@ def topology_attributes(study_area_dir, area, attr_df, study_area_shp, nodes_dic
     # 3. CONNECTIVITY:  is the average nearest neighbor degree of nodes with degree k
     if pd.isnull(attr_df.loc['avg_degree_connectivity', area]):
         avg_degree_connect = nx.average_degree_connectivity(new_G)
-        dict_data(avg_degree_connect, shp_path, 'avg_degree_connectivity', area, attr_df)
+        attr_df = dict_data(avg_degree_connect, shp_path, 'avg_degree_connectivity', area, attr_df)
         # avg_degree_connect_data = dict_data(avg_degree_connect, shp_path, 'avg_degree_connect')
         # attr_df.at['avg_degree_connectivity', area] = avg_degree_connect_data
         # save_attr_df(attr_df, study_area_dir)
@@ -481,7 +516,7 @@ def topology_attributes(study_area_dir, area, attr_df, study_area_shp, nodes_dic
     # The density is 0 for a graph without edges and 1 for a complete graph.
     if pd.isnull(attr_df.loc['avg_edge_density', area]):
         avg_edge_density = nx.density(new_G)
-        dict_data(avg_edge_density, shp_path, 'avg_edge_density', area, attr_df)
+        attr_df = dict_data(avg_edge_density, shp_path, 'avg_edge_density', area, attr_df)
         # attr_df.at['avg_edge_density', area] = avg_edge_density
         # save_attr_df(attr_df, study_area_dir)
         # print(datetime.datetime.now(), 'Average edge density: ' + str(avg_edge_density))
@@ -490,7 +525,7 @@ def topology_attributes(study_area_dir, area, attr_df, study_area_shp, nodes_dic
     # 5. AVG SHORTEST PATH LENGTH (WEIGHTED BY TIME):
     if pd.isnull(attr_df.loc['avg_shortest_path_duration', area]):
         avg_spl = nx.average_shortest_path_length(new_G, weight='time')
-        dict_data(avg_spl, shp_path, 'avg_shortest_path_duration', area, attr_df)
+        attr_df = dict_data(avg_spl, shp_path, 'avg_shortest_path_duration', area, attr_df)
         # attr_df.at['avg_shortest_path_duration', area] = avg_spl
         # save_attr_df(attr_df, study_area_dir)
         # print(datetime.datetime.now(), 'Average shortest path length (duration in seconds): ' + str(avg_spl))
@@ -499,19 +534,19 @@ def topology_attributes(study_area_dir, area, attr_df, study_area_shp, nodes_dic
     # nodes betweenness: not agree with the result of this algorithm based on the definition of betweenness...
     if pd.isnull(attr_df.loc['node_betweenness*', area]):
         node_betw_centr = nx.betweenness_centrality(new_diG, weight='time')
-        dict_data(node_betw_centr, shp_path, 'node_betweenness*', area, attr_df)
+        attr_df = dict_data(node_betw_centr, shp_path, 'node_betweenness*', area, attr_df)
         # node_betw_centr_data = dict_data(node_betw_centr, shp_path, 'node_betweenness')
         # attr_df.at['node_betweenness*', area] = node_betw_centr_data
         # save_attr_df(attr_df, study_area_dir)
     # edges betweenness
     if pd.isnull(attr_df.loc['edge_betweenness', area]):
         edge_betw_centr = nx.edge_betweenness_centrality(new_G, weight='time')
-        dict_data(edge_betw_centr, shp_path, 'edge_betweenness*', area, attr_df)
+        attr_df = dict_data(edge_betw_centr, shp_path, 'edge_betweenness', area, attr_df)
         # edge_betw_centr_data = dict_data(edge_betw_centr, shp_path, 'edge_betweenness')
         # attr_df.at['edge_betweenness', area] = edge_betw_centr_data
         # save_attr_df(attr_df, study_area_dir)
-    if pd.isnull(attr_df.loc['lim_edge_betweenness', area]):
-        btw_acc(new_G, G, shp_path, area, nodes_dict, attr_df)
+    # if pd.isnull(attr_df.loc['btw_acc_trip_production', area]):
+    btw_acc(new_G, new_G30k, shp_path, area, nodes_dict, attr_df)
         # dict_data(lim_edge_betw_centr, shp_path, 'lim_edge_betweenness*', area, attr_df)
         # lim_edge_betw_centr_data = dict_data(lim_edge_betw_centr, shp_path, 'lim_edge_betweenness')
         # attr_df.at['lim_edge_betweenness', area] = lim_edge_betw_centr_data
@@ -520,13 +555,13 @@ def topology_attributes(study_area_dir, area, attr_df, study_area_shp, nodes_dic
     # 7. CLOSENESS CENTRALITY: Of a node is the average length of the shortest path from the node to all other nodes
     if pd.isnull(attr_df.loc['node_closeness_time*', area]):
         node_close_time_centr = nx.closeness_centrality(new_diG, distance='time')
-        dict_data(node_close_time_centr, shp_path, 'node_closeness_time*', area, attr_df)
+        attr_df = dict_data(node_close_time_centr, shp_path, 'node_closeness_time*', area, attr_df)
         # node_close_centr_data = dict_data(node_close_time_centr, shp_path, 'node_closeness_time')
         # attr_df.at['node_closeness_time*', area] = node_close_centr_data
         # save_attr_df(attr_df, study_area_dir)
     if pd.isnull(attr_df.loc['node_closeness_length*', area]):
         node_close_dist_centr = nx.closeness_centrality(new_diG, distance='length')
-        dict_data(node_close_dist_centr, shp_path, 'node_closeness_length*', area, attr_df)
+        attr_df = dict_data(node_close_dist_centr, shp_path, 'node_closeness_length*', area, attr_df)
         # node_close_dist_data = dict_data(node_close_dist_centr, shp_path, 'node_closeness_length')
         # attr_df.at['node_closeness_length*', area] = node_close_dist_data
         # save_attr_df(attr_df, study_area_dir)
@@ -544,14 +579,14 @@ def topology_attributes(study_area_dir, area, attr_df, study_area_shp, nodes_dic
     # nodes load: of a node is the fraction of all shortest paths that pass through that node.
     if pd.isnull(attr_df.loc['node_load_centrality', area]):
         load_centrality = nx.load_centrality(new_G)
-        dict_data(load_centrality, shp_path, 'node_load_centrality*', area, attr_df)
+        attr_df = dict_data(load_centrality, shp_path, 'node_load_centrality', area, attr_df)
         # load_centrality_data = dict_data(load_centrality, shp_path, 'node_load_centrality')
         # attr_df.at['node_load_centrality', area] = load_centrality_data
         # save_attr_df(attr_df, study_area_dir)
     # edges load: counts the number of shortest paths which cross each edge
     if pd.isnull(attr_df.loc['edge_load_centrality', area]):
         edge_load = nx.edge_load_centrality(new_G)
-        dict_data(edge_load, shp_path, 'edge_load_centrality*', area, attr_df)
+        attr_df = dict_data(edge_load, shp_path, 'edge_load_centrality', area, attr_df)
         # edge_load_data = dict_data(edge_load, shp_path, 'edge_load_centrality')
         # attr_df.at['edge_load_centrality', area] = edge_load_data
         # save_attr_df(attr_df, study_area_dir)
@@ -560,12 +595,12 @@ def topology_attributes(study_area_dir, area, attr_df, study_area_shp, nodes_dic
     # 9. CLUSTERING: geometric average of the subgraph edge weights
     if pd.isnull(attr_df.loc['clustering*', area]):
         clustering = nx.clustering(new_diG)
-        dict_data(clustering, shp_path, 'clustering*', area, attr_df)
+        attr_df = dict_data(clustering, shp_path, 'clustering*', area, attr_df)
         # clustering_data = dict_data(clustering, shp_path, 'clustering')
         # attr_df.at['clustering*', area] = clustering_data
 
         clustering_weighted = nx.clustering(new_diG, weight='time')
-        dict_data(clustering_weighted, shp_path, 'clustering_w*', area, attr_df)
+        attr_df = dict_data(clustering_weighted, shp_path, 'clustering_w*', area, attr_df)
         # clustering_weighted_data = dict_data(clustering_weighted, shp_path, 'clustering_w')
         # attr_df.at['clustering_w*', area] = clustering_weighted_data
 
@@ -577,9 +612,9 @@ def topology_attributes(study_area_dir, area, attr_df, study_area_shp, nodes_dic
     # Radius/Diameter of graph: radius is minimum eccentricity/The diameter is the maximum eccentricity.
     if pd.isnull(attr_df.loc['eccentricity', area]):
         eccentricity = nx.algorithms.distance_measures.eccentricity(new_G)
-        dict_data(eccentricity, shp_path, 'eccentricity', area, attr_df)
-        dict_data(min(eccentricity.values()), shp_path, 'radius', area, attr_df)
-        dict_data(max(eccentricity.values()), shp_path, 'diameter', area, attr_df)
+        attr_df = dict_data(eccentricity, shp_path, 'eccentricity', area, attr_df)
+        attr_df = dict_data(min(eccentricity.values()), shp_path, 'radius', area, attr_df)
+        attr_df = dict_data(max(eccentricity.values()), shp_path, 'diameter', area, attr_df)
         # eccentricity_data = dict_data(eccentricity, shp_path, 'eccentricity')
         # attr_df.at['eccentricity', area] = eccentricity_data
         # attr_df.at['radius', area] = nx.radius(new_G)
@@ -612,7 +647,7 @@ def topology_attributes(study_area_dir, area, attr_df, study_area_shp, nodes_dic
         for nod in nodes_list:
             total_len += nod[2]
 
-        dict_data(total_len, shp_path, 'network_distance', area, attr_df)
+        attr_df = dict_data(total_len, shp_path, 'network_distance', area, attr_df)
         # attr_df.at['network_distance', area] = total_len
         # print(datetime.datetime.now(), 'Total network distance: ' + str(total_len))
         # save_attr_df(attr_df, study_area_dir)
@@ -649,7 +684,7 @@ def topology_attributes(study_area_dir, area, attr_df, study_area_shp, nodes_dic
         if pd.isnull(attr_df.loc[basic_stats_list[attr], area]):
             file = open(str(shp_path) + "/stats_basic.pkl", 'rb')
             stats_basic_dict = pickle.load(file)
-            dict_data(stats_basic_dict[attr], shp_path, basic_stats_list[attr], area, attr_df)
+            attr_df = dict_data(stats_basic_dict[attr], shp_path, basic_stats_list[attr], area, attr_df)
             # attr_df.at[basic_stats_list[attr], area] = stats_basic_dict[attr]
             # print(datetime.datetime.now(), 'Attribute ' + str(basic_stats_list[attr]) + ': '
             #       + str(stats_basic_dict[attr]))
@@ -661,7 +696,7 @@ def topology_attributes(study_area_dir, area, attr_df, study_area_shp, nodes_dic
     return attr_df, attributes
 
 
-def take_avg(attr_df, study_area_dir, attributes):
+def take_avg(attr_df, study_area_dir, attributes=None):
     # take avg of cells (if possible)
     attr_avg_df = attr_df.copy(deep=True)
 
@@ -756,8 +791,9 @@ def take_avg(attr_df, study_area_dir, attributes):
     # attr_df = attr_df.reindex(new_index)
     # attr_avg_df = attr_avg_df.reindex(new_index)
 
-    attr_df = attr_df.reindex(attributes)
-    attr_avg_df = attr_avg_df.reindex(attributes)
+    if attributes:
+        attr_df = attr_df.reindex(attributes)
+        attr_avg_df = attr_avg_df.reindex(attributes)
 
     # sort both dataframes
     attr_df = attr_df.sort_values(by='network_distance', ascending=False, axis=1)

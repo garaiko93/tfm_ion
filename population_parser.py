@@ -7,7 +7,7 @@ import re
 import datetime
 
 # functions from other scripts
-# from attrdf_manip import take_avg
+from graph_analysis import take_avg
 
 
 def extract_activity(activity,from_to):
@@ -288,7 +288,7 @@ def population_parser_line(out_path, pop_file, scenario_area=None, attr_table_di
             print(datetime.datetime.now(), 'Attributes table loaded successfully.')
             attr_df.at['population', scenario_area] = attr_count
             attr_df.at['trips', scenario_area] = plans_count
-            take_avg(attr_df, attr_table_dir)
+            take_avg(attr_df, attr_table_dir, attributes=None)
             # attr_df.to_csv(str(attr_table_dir) + "/attribute_table.csv", sep=",", index=True, index_label=['attributes'])
         print(datetime.datetime.now(), str('Population_attributes contains attributes of ') + str(attr_count) + str(' persons.'))
         print(datetime.datetime.now(), str('Population_plans contains information of ') + str(plans_count) + str(' trips.'))
