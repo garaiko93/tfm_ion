@@ -8,7 +8,7 @@ import copy
 import os
 import math
 import ast
-import osmnx as ox
+# import osmnx as ox
 from scipy import spatial
 from progressbar import Percentage, ProgressBar, Bar, ETA
 from shapely.geometry import Point, Polygon, LinearRing
@@ -191,8 +191,8 @@ def btw_acc(new_G, chG, area_path, area, nodes_dict, attr_df, grid_size=500):
             links_gdf = gpd.read_file(str(area_path) + "/" + str(area) + "_btw_acc.shp")
         else:
             links_gdf = gpd.read_file(str(area_path) + "/" + str(area) + "_network_5k.shp")
+            links_gdf['btw_check'] = 0
 
-        links_gdf['btw_check'] = 0
         links_gdf['btw_' + str(facil)] = 0
         links_gdf['btw_Acc_' + str(facil)] = 0
         for link in list(cPop_li):
@@ -202,7 +202,6 @@ def btw_acc(new_G, chG, area_path, area, nodes_dict, attr_df, grid_size=500):
             # update gdf of network with obtained values
             ix = links_gdf.index[links_gdf['way_id'] == link][0]
 
-            # print(ix, link, cPop_li[link], cApop_li[link])
             links_gdf.loc[ix, 'btw_' + str(facil)] = cPop_li[link]
             links_gdf.loc[ix, 'btw_Acc_' + str(facil)] = cApop_li[link]
             links_gdf.loc[ix, 'btw_check'] = 1
@@ -232,15 +231,16 @@ def btw_acc(new_G, chG, area_path, area, nodes_dict, attr_df, grid_size=500):
     print(datetime.datetime.now(), 'Betweenness-accessibility metrics computation finished.')
     # return edge_btw_acc
 
-def straightness(nodes_dict, new_G):
+def straightness(nodes_dict, new_G, nodes_list):
     print(datetime.datetime.now(), 'Calculating node_straightness of graph ...')
+    print(len(nodes_list))
     g = create_igraph(new_G)
-
     n = 0
     node_straightness = {}
-    for i in g.vs['name']:
+    # for i in g.vs['name']:
+    for i in nodes_list:
         # print(datetime.datetime.now(), n)
-        if n % 20 == 0:
+        if n % 1 == 0:
             print(datetime.datetime.now(), n)
         i_lonlat = Point(nodes_dict[str(i)])
         dist_comp_list = []
@@ -387,8 +387,9 @@ def filter_graph(study_area_dir, graph_file, area_def=None):
 # NETWORK ANALYSIS ATTRIBUTES
 def topology_attributes(study_area_dir, area, attr_df, study_area_shp, nodes_dict):
     # graph_file = r'C:\Users\Ion\TFM\data\network_graphs\test'
-    #     # study_area_dir = r'C:\Users\Ion\TFM\data\study_areas'
-    #     # area = 'bern'
+    study_area_dir = r'C:\Users\Ion\TFM\data\study_areas'
+    area = 'freiburg'
+
     new_G = nx.read_gpickle(str(study_area_dir) + '/' + area + '/' + area + '_MultiDiGraph_largest.gpickle')
     new_diG = nx.read_gpickle(str(study_area_dir) + '/' + area + '/' + area + '_DiGraph_largest.gpickle')
     new_G30k = nx.read_gpickle(str(study_area_dir) + '/' + area + '/' + area + '_MultiDiGraph5k_largest.gpickle')
@@ -654,14 +655,14 @@ def topology_attributes(study_area_dir, area, attr_df, study_area_shp, nodes_dic
 
     # ----------------------------------------------------------------------
     # 11. OSMnx stats module
-    if not os.path.isfile(str(shp_path) + '/' + 'stats_basic.pkl'):
-        print('Calculating basic_stats')
-        new_G.graph['crs'] = 'epsg:2056'
-        new_G.graph['name'] = str(area) + '_MultiDiGraph'
-        basic_stats = ox.basic_stats(new_G, area=study_area_shp.area, clean_intersects=True, tolerance=15,
-                                     circuity_dist='euclidean')
-        with open(str(shp_path) + '/stats_basic.pkl', 'wb') as f:
-            pickle.dump(basic_stats, f, pickle.HIGHEST_PROTOCOL)
+    # if not os.path.isfile(str(shp_path) + '/' + 'stats_basic.pkl'):
+    #     print('Calculating basic_stats')
+    #     new_G.graph['crs'] = 'epsg:2056'
+    #     new_G.graph['name'] = str(area) + '_MultiDiGraph'
+    #     basic_stats = ox.basic_stats(new_G, area=study_area_shp.area, clean_intersects=True, tolerance=15,
+    #                                  circuity_dist='euclidean')
+    #     with open(str(shp_path) + '/stats_basic.pkl', 'wb') as f:
+    #         pickle.dump(basic_stats, f, pickle.HIGHEST_PROTOCOL)
     # if not os.path.isfile(str(study_area_dir) + '/' + 'stats_extended.pkl'):
         # print('Calculating extended_stats')
         # extended_stats = ox.extended_stats(new_G, connectivity=True, anc=True, ecc=True, bc=True, cc=True)
