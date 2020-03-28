@@ -144,3 +144,11 @@ def btw_acc(new_G, chG, area_path, nodes_dict):
     # add column of ACC empl:
     for index, row in m_df.iterrows():
         row['x'] - o_
+
+import pandas as pd
+import seaborn as sb
+from matplotlib import pyplot as plt
+df = sb.load_dataset('iris')
+sb.set_style("ticks")
+sb.pairplot(df,hue = 'species',diag_kind = "kde",kind = "scatter",palette = "husl")
+plt.show()

@@ -11,8 +11,9 @@ import datetime
 from shutil import copyfile
 from progressbar import Percentage, ProgressBar, Bar, ETA
 
+
 # Identify the largest component and the "isolated" nodes
-def check_iso_graph(G,out_path,filename):
+def check_iso_graph(G, out_path, filename):
     print(datetime.datetime.now(), 'Original ' + str(filename) + ' has: ' + str(
         len([len(c) for c in sorted(nx.strongly_connected_components(G), key=len, reverse=True)])) + ' island with '
           + str(G.number_of_nodes()) + '/' + str(G.number_of_edges()) + ' (Nnodes/Nedges)')
@@ -47,7 +48,7 @@ def check_iso_graph(G,out_path,filename):
         copyfile(str(out_path) + "/" + str(filename) + ".gpickle",
                  str(out_path) + "/" + str(filename) + "_largest.gpickle")
 
-    return G,isolated, largest
+    return G, isolated, largest
 
 def create_graph(G,edges_list,out_path,filename,nodes_dict):
     # introduce every way as edge with attributes of time and new_id

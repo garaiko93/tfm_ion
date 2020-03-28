@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import pickle
 import pandas as pd
 import tkinter
+import seaborn as sb
 
 # functions from other scripts
 from vioboxPlot import violinboxplot
@@ -84,7 +85,7 @@ attr_dict = {
 
 for env in ['All', 'Rural', 'Urban']:
     for attr in list(attr_dict):
-        data_setup(r'C:/Users/Ion/TFM/data/study_areas/', attr, attr_dict[attr], env)
+        data_setup('C:/Users/Ion/TFM/data/study_areas/', attr, attr_dict[attr], env)
 
 
 # -----------------------------------------------------------------------------

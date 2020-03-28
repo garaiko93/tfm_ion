@@ -6,7 +6,7 @@ import argparse
 
 # functions from other scripts
 # from network_graph import parse_network
-from graph_analysis import filter_graph
+from graph_analysis import filter_graph, analysis_setup
 from population_parser import population_parser_setup
 
 print(datetime.datetime.now(), 'Main script begins ...')
@@ -77,7 +77,6 @@ print(datetime.datetime.now(), 'Main script begins ...')
 #                            r'C:/Users/Ion/TFM/data/study_areas/' + str(area) + '/population_db',
 #                            r'C:/Users/Ion/TFM/data/study_areas')
 
-
 # -------------------------------------------------------------------------------------------------------------
 # CREATE AND ANALYSE EVERY STUDY AREA
 # -------------------------------------------------------------------------------------------------------------
@@ -90,10 +89,23 @@ print(datetime.datetime.now(), 'Main script begins ...')
 #                   (i.e.: r"C:\Users\...\network\graph.gpickle")
 # '''
 
-filter_graph(r"C:/Users/Ion/TFM/data/study_areas",
-             r"C:/Users/Ion/TFM/data/network_graphs",
-             'zurich_kreis')
+# parser = argparse.ArgumentParser(description='Cut and analyse a graph for a certain input area.')
+# parser.add_argument('--study-areas', dest="study_areas", help='path to study areas')
+# parser.add_argument('--network-graphs', dest="network_graphs", help="path to network_graphs")
+# parser.add_argument('--area', dest="area", help='area name')
+# args = parser.parse_args()
+# filter_graph(args.study_areas, args.network_graphs, args.area)
 
+analysis_setup(r"C:/Users/Ion/TFM/data/study_areas",
+               r"C:/Users/Ion/TFM/data/network_graphs",
+               'test_area')
+
+# filter_graph(r"C:/Users/Ion/TFM/data/study_areas",
+#              r"C:/Users/Ion/TFM/data/network_graphs",
+#              None)
+# filter_graph("/cluster/home/gaion/TFM/study_areas",
+#              "/cluster/home/gaion/TFM/network_graphs",
+#              'zurich_kreis')
 # parser = argparse.ArgumentParser(description='Cut and analyse a graph for a certain input area.')
 # parser.add_argument('--study-areas', dest="study_areas", help='path to study areas')
 # parser.add_argument('--network-graphs', dest="network_graphs", help="path to network_graphs")
