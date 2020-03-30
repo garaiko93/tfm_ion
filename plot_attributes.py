@@ -6,6 +6,7 @@ import pickle
 import pandas as pd
 import tkinter
 import seaborn as sb
+from matplotlib import pyplot as plt
 
 # functions from other scripts
 from vioboxPlot import violinboxplot
@@ -123,14 +124,43 @@ list_values = [float(d) for d in rural_df['edge_d_km'].tolist()]
 
 ax = plt.gca()
 plt.plot(rural, list_values)
+#
+# import numpy as np
+# x = np.arange(1,len(rural),1)
+# y = np.array([20,21,22,23])
+# my_xticks = ['John','Arnold','Mavis','Matt']
+# plt.xticks(x, rural)
+# plt.plot(x, list_values)
+# plt.show()
 
-import numpy as np
-x = np.arange(1,len(rural),1)
-y = np.array([20,21,22,23])
-my_xticks = ['John','Arnold','Mavis','Matt']
-plt.xticks(x, rural)
-plt.plot(x, list_values)
+
+# Pair wise plot
+study_area_dir = r'C:\Users\Ion\TFM\data\study_areas'
+
+# df = sb.load_dataset('iris')
+df = pd.read_csv(str(study_area_dir) + '/' + 'attribute_table_AVG_T.csv', sep=",", index_col='study_area', dtype=object)
+
+for i in range(len(df)):
+    # print(attr_df.index[i], i)
+    for column in attr_df.columns:
+        try:
+            # FLOAT ATTRIBUTES
+            str_val = df.iloc[i][column]
+            flo_val = float(str_val)
+            df.at[df.index[i], column] = flo_val
+        except:
+            pass
+type(df.iloc[0]['network_distance'])
+
+df2 = df[['network_distance', 'node_d_km','area_type', 'edge_d_km']]
+df2 = df[['network_distance', 'node_d_km','area_type', 'edge_d_km']]
+sb.set_style("ticks")
+# sb.pairplot(df[['sepal_length', 'sepal_width', 'species']], hue='species', diag_kind="kde", kind="scatter", palette="husl")
+sb.pairplot(df, hue='area_type', diag_kind="kde", kind="scatter", palette="husl")
 plt.show()
+
+
+
 # -----------------------------------------------------------------------------
 # VIOBOXPLOT FUNCTION CALL
 # -----------------------------------------------------------------------------

@@ -93,21 +93,6 @@ def save_attr_df(attr_df, study_area_dir, area, attr_avg_df=None, attr_avg_dfT=N
     # save = False        # uncomment to NOT save (testing purposes)
     save = True         # uncomment to save
 
-    # Load and upload attr_df with new calculated attributes from current study area before saving
-    # if not isinstance(attr_df, pd.DataFrame):
-    #     attr_df = pd.read_csv(str(study_area_dir) + '/' + 'attribute_table.csv', sep=",", index_col='attributes',
-    #                           dtype=object)
-
-    # print(type(area_series), area_series.name)
-    # for attribute in list(area_series.index):
-        # print(area_series[attribute], attribute)
-        # attr_df.at[attribute, area_series.name] = area_series[attribute]
-        # attr_df.at[attribute, area_series.name] = 1
-        # print(attribute, area_series.name)
-        # print(attr_df.at[attribute, area_series.name])
-
-    # attr_df = attr_df.append(area_series)
-    # attr_df[area] = area_series
     if save:
         attr_df.to_csv(str(study_area_dir) + "/attribute_table.csv", sep=",", index=True, index_label=['attributes'])
 
@@ -389,6 +374,20 @@ def dist_decay_funct(area_path, n_bins):
 
     return a, k, b
 
+
+def impedance_function(area_path, path_time=None, a=None, c=None, b=None):
+    if a is None:
+        # calibrates the distance decay function taking the correspondant travel times of the study area
+        a, c, b = dist_decay_funct(area_path, n_bins=1000)
+        # a,b,c=[0,0,0]
+        return a, c, b
+
+    #calibrated function based in trip travel times
+    f_tt = (a * math.exp(c * path_time) + b)
+    # f_tt = math.exp(-0.05 * path_time)
+    return f_tt
+
+
 def btw_acc(new_G, chG, study_area_dir, area, nodes_dict, area_series, grid_size=500):
     # import nodes into study area: new_G.nodes()
     # import graph of full ch and transform into igraph
@@ -400,7 +399,9 @@ def btw_acc(new_G, chG, study_area_dir, area, nodes_dict, area_series, grid_size
     # new_G = nx.read_gpickle(r'C:/Users/Ion/TFM/data/study_areas/' + str(area) + '/' + str(area) + '_MultiDiGraph_largest.gpickle')
     # area_path = r'C:/Users/Ion/TFM/data/study_areas/' + str(area)
 
+
     print(datetime.datetime.now(), 'Calculating lim_edge_betweenness of graph ...')
+
     area_path = str(study_area_dir) + "/" + str(area)
     time_lim = 1200  # seconds
     grid_size = 500  # meters
@@ -408,7 +409,7 @@ def btw_acc(new_G, chG, study_area_dir, area, nodes_dict, area_series, grid_size
     g = create_igraph(chG)
 
     # calibrates the distance decay function taking the correspondant travel times of the study area
-    a, c, b = dist_decay_funct(area_path, n_bins=1000)
+    a, c, b = impedance_function(area_path, path_time=None, a=None, c=None, b=None)
 
     # call function to create df with grid areas defined in df with population, employment and optional facility values of study area
     m_df = create_distrib(area_path, grid_size, False)
@@ -477,9 +478,10 @@ def btw_acc(new_G, chG, study_area_dir, area, nodes_dict, area_series, grid_size
 
                 # define impedance function
                 # try: #calibrated function based in trip travel times
-                acc = facil_j * (a * math.exp(c * path_time) + b)
+                # acc = facil_j * (a * math.exp(c * path_time) + b)
                 # except:
-                #     acc = facil_j * math.exp(-0.05 * path_time)
+                f_tt = impedance_function(area_path, path_time, a, c, b)
+                acc = facil_j * f_tt
                 acc_list.append(acc)
             m_df.at[index, 'acc_' + str(facil)] = sum(acc_list)
         print(datetime.datetime.now(), 'Computation of ' + str(facil) + ' accessibility finished.')
@@ -540,10 +542,13 @@ def btw_acc(new_G, chG, study_area_dir, area, nodes_dict, area_series, grid_size
                 # Compute weight and centrality value for every link in paths
                 # define impedance function
                 # try: #calibrated function based in trip travel times
-                f_tt = (a * math.exp(c * path_time) + b)
+                # f_tt = (a * math.exp(c * path_time) + b)
                 # print(f_tt)
                 # except:
-                #     f_tt = math.exp(-0.05 * path_time)
+                # f_tt = math.exp(-0.05 * path_time)
+
+                f_tt = impedance_function(area_path, path_time, a, c, b)
+
                 weight_C_facil = facil_j * ((facil_k * f_tt) / acc_j)
                 weight_Ca_facil = facil2_k * f_tt
 

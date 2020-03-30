@@ -9,25 +9,50 @@ import numpy as np
 import statistics
 import argparse
 import os
-import datetime
+import ntpath
 
+
+def df_update(area_path, fleet_size, av_share, wt, df_name):
+    if os.path.isfile(str(area_path) + '/simulations/' + str(df_name) + '.csv'):
+        df = pd.read_csv(str(area_path) + '/simulations/' + str(df_name) + '.csv', sep=",", index_col='fleet_size', dtype=object)
+        df = pd.read_csv(r'C:/Users/Ion/TFM/data/study_areas/zurich_kreis/simulations/avg_df.csv', sep=",", index_col='fleet_size', dtype=object)
+    else:
+        df = pd.DataFrame(data=None)
+
+    # Update attribute table with new added attributes or study areas
+    if fleet_size not in df.index:
+        s = pd.Series(name=fleet_size)
+        df = df.append(s)
+        print('row added')
+
+    # create empty row with areas name to add attributes
+    if av_share not in df.columns:
+        df.insert(loc=len(df.columns), column=av_share, value=['' for i in range(df.shape[0])])
+
+    # Save actual simulation value in df
+    df.at[fleet_size, av_share] = wt
+
+    # Finally save df back
+    df.to_csv(str(area_path) + '/simulations/' + str(df_name) + '.csv', sep=",", index=True, index_label='fleet_size')
+
+def del_r(variable):
+    filename = variable.split('\r')[0]
+    return filename
 
 parser = argparse.ArgumentParser(description='Cut and analyse a graph for a certain input area.')
 parser.add_argument('--area-path', dest="area_path", help='path to simulation_output folder')
-parser.add_argument('--area', dest="area", help='area of simulation')
-parser.add_argument('--path', dest="path", help='path to simulation_output folder')
 parser.add_argument('--fleet-size', dest="fleet_size", help='fleet-size of simulation')
+parser.add_argument('--av-share', dest="av_share", help='av_share value of simulation')
 args = parser.parse_args()
 
+area_path = args.area_path.split('\r')[0]
+fleet_size = args.fleet_size.split('\r')[0]
+av_share = args.av_share.split('\r')[0]
 
-area_path = args.path
-area = args.area
-av_share = args.av_share
-fleet_size = args.fleet_size
+sim_path = str(area_path) + '/simulations/' + str(av_share) + '/' + str(fleet_size) + '/simulation_output'
+# sim_path = r'C:/Users/Ion/TFM/data/study_areas/' + str(area) + '/simulations/' + str(av_share) + '/' + str(fleet_size) + \
+#        '/simulation_output'
 
-# sim_path = str(area_path) + '/simulations/' + str(av_share) + '/' + str(fleet_size) + '/simulation_output'
-sim_path = r'C:/Users/Ion/TFM/data/study_areas/' + str(area) + '/simulations/' + str(av_share) + '/' + str(fleet_size) + \
-       '/simulation_output'
 
 df = pd.read_csv(str(sim_path) + '/av_passenger_rides.csv', sep=";")
 waiting_times = [x for x in list(df['waiting_time']) if str(x) != 'nan']
@@ -35,26 +60,13 @@ avg_wt = sum(waiting_times)/len(waiting_times)
 var_wt = np.var(waiting_times)
 stdev_wt = statistics.stdev(waiting_times)
 
-# print(len(df), len(waiting_times), avg_wt)
+# Record waiting time values in dataframes:
+df_update(area_path, fleet_size, av_share, avg_wt, 'avg_df')
+df_update(area_path, fleet_size, av_share, var_wt, 'var_df')
+df_update(area_path, fleet_size, av_share, stdev_wt, 'stdev_df')
 
-# Check if .csv with attributes exists:
-if os.path.isfile(str(area_path) + '/simulations/simulations_df.csv'):
-    avg_df = pd.read_csv(str(area_path) + '/simulations/avg_df.csv', sep=",", index_col='attributes', dtype=object)
-    var_df = pd.read_csv(str(area_path) + '/simulations/var_df.csv', sep=",", index_col='attributes',
-                         dtype=object)
-    stdev_df = pd.read_csv(str(area_path) + '/simulations/stdev_df.csv', sep=",", index_col='attributes',
-                         dtype=object)
-    print(datetime.datetime.now(), 'Simulation df already exist, file loaded')
-else:
-    avg_df = pd.DataFrame(data=None)
-    var_df = pd.DataFrame(data=None)
-    stdev_df = pd.DataFrame(data=None)
-    print(datetime.datetime.now(), 'Simulation df do not exist, avg_df var_df and stdev_df were created empty.')
-
-
-
-
-
+#this gives the wt value to the bash file
+print(avg_wt)
 
 
 

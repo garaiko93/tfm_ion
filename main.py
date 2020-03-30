@@ -89,16 +89,16 @@ print(datetime.datetime.now(), 'Main script begins ...')
 #                   (i.e.: r"C:\Users\...\network\graph.gpickle")
 # '''
 
-# parser = argparse.ArgumentParser(description='Cut and analyse a graph for a certain input area.')
-# parser.add_argument('--study-areas', dest="study_areas", help='path to study areas')
-# parser.add_argument('--network-graphs', dest="network_graphs", help="path to network_graphs")
-# parser.add_argument('--area', dest="area", help='area name')
-# args = parser.parse_args()
-# filter_graph(args.study_areas, args.network_graphs, args.area)
+parser = argparse.ArgumentParser(description='Cut and analyse a graph for a certain input area.')
+parser.add_argument('--study-areas', dest="study_areas", help='path to study areas')
+parser.add_argument('--network-graphs', dest="network_graphs", help="path to network_graphs")
+parser.add_argument('--area', dest="area", help='area name')
+args = parser.parse_args()
+analysis_setup(args.study_areas, args.network_graphs, args.area)
 
-analysis_setup(r"C:/Users/Ion/TFM/data/study_areas",
-               r"C:/Users/Ion/TFM/data/network_graphs",
-               'test_area')
+# analysis_setup(r"C:/Users/Ion/TFM/data/study_areas",
+#                r"C:/Users/Ion/TFM/data/network_graphs",
+#                'zermatt')
 
 # filter_graph(r"C:/Users/Ion/TFM/data/study_areas",
 #              r"C:/Users/Ion/TFM/data/network_graphs",

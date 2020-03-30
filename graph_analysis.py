@@ -3,7 +3,7 @@ import pickle
 import geopandas as gpd
 import networkx as nx
 import os
-import osmnx as ox
+# import osmnx as ox
 import datetime
 
 # functions from other scripts
@@ -260,6 +260,10 @@ def topology_attributes(study_area_dir, graph_file, area):
         # save_attr_df(attr_df, study_area_dir)
     if pd.isnull(area_series['btw_acc_trip_production']):
     # if pd.isnull(attr_df.loc['btw_acc_trip_production', area]):
+        # Check if files of previous calculated btw_acc exist:
+        if os.path.isfile(str(study_area_dir) + "/" + str(area) + "/attr_btw_acc_trip_generation.pkl"):
+            os.remove(str(study_area_dir) + "/" + str(area) + "/" + str(area) + "_btw_acc.shp")
+
         print('----------------------------------------------------------------------')
         btw_acc(new_G, new_G5k, study_area_dir, area, nodes_dict, area_series)
         print('----------------------------------------------------------------------')
@@ -383,14 +387,14 @@ def topology_attributes(study_area_dir, graph_file, area):
 
     # ----------------------------------------------------------------------
     # 11. OSMnx stats module
-    if not os.path.isfile(str(shp_path) + '/' + 'stats_basic.pkl'):
-        print(datetime.datetime.now(), 'Calculating basic_stats')
-        new_G.graph['crs'] = 'epsg:2056'
-        new_G.graph['name'] = str(area) + '_MultiDiGraph'
-        basic_stats = ox.basic_stats(new_G, area=study_area_shp.area, clean_intersects=True, tolerance=15,
-                                     circuity_dist='euclidean')
-        with open(str(shp_path) + '/stats_basic.pkl', 'wb') as f:
-            pickle.dump(basic_stats, f, pickle.HIGHEST_PROTOCOL)
+    # if not os.path.isfile(str(shp_path) + '/' + 'stats_basic.pkl'):
+    #     print(datetime.datetime.now(), 'Calculating basic_stats')
+    #     new_G.graph['crs'] = 'epsg:2056'
+    #     new_G.graph['name'] = str(area) + '_MultiDiGraph'
+    #     basic_stats = ox.basic_stats(new_G, area=study_area_shp.area, clean_intersects=True, tolerance=15,
+    #                                  circuity_dist='euclidean')
+    #     with open(str(shp_path) + '/stats_basic.pkl', 'wb') as f:
+    #         pickle.dump(basic_stats, f, pickle.HIGHEST_PROTOCOL)
     # if not os.path.isfile(str(study_area_dir) + '/' + 'stats_extended.pkl'):
         # print('Calculating extended_stats')
         # extended_stats = ox.extended_stats(new_G, connectivity=True, anc=True, ecc=True, bc=True, cc=True)
