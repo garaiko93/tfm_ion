@@ -134,6 +134,12 @@ plt.plot(rural, list_values)
 # plt.show()
 
 
+
+import pickle
+import pandas as pd
+import seaborn as sb
+from matplotlib import pyplot as plt
+
 # Pair wise plot
 study_area_dir = r'C:\Users\Ion\TFM\data\study_areas'
 
@@ -142,7 +148,7 @@ df = pd.read_csv(str(study_area_dir) + '/' + 'attribute_table_AVG_T.csv', sep=",
 
 for i in range(len(df)):
     # print(attr_df.index[i], i)
-    for column in attr_df.columns:
+    for column in df.columns:
         try:
             # FLOAT ATTRIBUTES
             str_val = df.iloc[i][column]
@@ -150,13 +156,13 @@ for i in range(len(df)):
             df.at[df.index[i], column] = flo_val
         except:
             pass
-type(df.iloc[0]['network_distance'])
+print(type(df.iloc[0]['network_distance']))
 
-df2 = df[['network_distance', 'node_d_km','area_type', 'edge_d_km']]
-df2 = df[['network_distance', 'node_d_km','area_type', 'edge_d_km']]
+df2 = df[['network_distance', 'node_d_km', 'edge_d_km', 'node_straightness', 'eccentricity', 'node_closeness_time*', 'area_type']]
+# df2 = df[['network_distance', 'node_d_km', 'edge_d_km', 'area_type']]
 sb.set_style("ticks")
 # sb.pairplot(df[['sepal_length', 'sepal_width', 'species']], hue='species', diag_kind="kde", kind="scatter", palette="husl")
-sb.pairplot(df, hue='area_type', diag_kind="kde", kind="scatter", palette="husl")
+sb.pairplot(df2, hue='area_type', diag_kind="kde", kind="scatter", palette="husl")
 plt.show()
 
 
