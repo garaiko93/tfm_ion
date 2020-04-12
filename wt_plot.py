@@ -4,6 +4,7 @@ import pandas as pd
 import argparse
 from scipy.optimize import curve_fit
 import ntpath
+import datetime
 
 # column='0.4'
 def tend_curve(df, column):
@@ -63,6 +64,7 @@ def tend_curve(df, column):
 
 # area_path = r'C:\Users\Ion\TFM\data\study_areas/locarno'
 def plot_fc(area_path):
+    print(datetime.datetime.now(), 'Creating plot, fitting curve with output waiting time average values ...')
     area = ntpath.split(area_path)[1]
     df_name = 'avg_df'
     df = pd.read_csv(str(area_path) + '/simulations/' + str(df_name) + '.csv', sep=",", index_col='fleet_size')

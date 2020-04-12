@@ -96,9 +96,12 @@ print(datetime.datetime.now(), 'Main script begins ...')
 # args = parser.parse_args()
 # analysis_setup(args.study_areas, args.network_graphs, args.area)
 
-analysis_setup(r"C:/Users/Ion/TFM/data/study_areas",
-               r"C:/Users/Ion/TFM/data/network_graphs",
-               'test_area')
+# analysis_setup(r"C:/Users/Ion/TFM/data/study_areas",
+#                r"C:/Users/Ion/TFM/data/network_graphs",
+#                'freiburg')
+analysis_setup("/cluster/home/gaion/TFM/data/study_areas",
+               "/cluster/home/gaion/TFM/data/network_graphs",
+               'freiburg')
 
 # filter_graph(r"C:/Users/Ion/TFM/data/study_areas",
 #              r"C:/Users/Ion/TFM/data/network_graphs",

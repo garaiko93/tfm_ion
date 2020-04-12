@@ -3,6 +3,7 @@ import pickle
 import geopandas as gpd
 import networkx as nx
 import os
+from progressbar import Percentage, ProgressBar, Bar, ETA
 # import osmnx as ox
 import datetime
 
@@ -93,6 +94,7 @@ def topology_attributes(study_area_dir, graph_file, area):
                   'n_nodes',            # stats_basic
                   'n_edges',            # stats_basic
                   'network_distance',   # stats_basic
+                  'avg_link_time',
                   'area',
                   'population',
                   'trips',
@@ -125,6 +127,7 @@ def topology_attributes(study_area_dir, graph_file, area):
                   'clustering*',
                   'clustering_w*',
                   'eccentricity',
+                  'efficiency',
                   'radius',
                   'diameter',
                   'center_nodes',
@@ -165,6 +168,15 @@ def topology_attributes(study_area_dir, graph_file, area):
     # if pd.isnull(attr_df.loc['area_type', area]):
         area_series = dict_data(area_type_dict[area], study_area_dir, 'area_type', area, area_series)
 
+    # Average duartion of link
+    # if pd.isnull(area_series['avg_link_time']):
+    all_time = 0
+    for (u, v, c) in new_G.edges.data('time'):
+        all_time += float(c)
+    avg_link_time = all_time / len(list(new_G.edges))
+    if pd.isnull(area_series['avg_link_time']):
+        area_series = dict_data(avg_link_time, study_area_dir, 'avg_link_time', area, area_series)
+
     # ----------------------------------------------------------------------
     # 1. AVG DEGREE OF GRAPH: number of edges adjacent per node
     if pd.isnull(area_series['avg_degree']):
@@ -204,7 +216,7 @@ def topology_attributes(study_area_dir, graph_file, area):
     # 3. CONNECTIVITY:  is the average nearest neighbor degree of nodes with degree k
     if pd.isnull(area_series['avg_degree_connectivity']):
     # if pd.isnull(attr_df.loc['avg_degree_connectivity', area]):
-        avg_degree_connect = nx.average_degree_connectivity(new_G)
+        avg_degree_connect = nx.average_degree_connectivity(new_G, weight='time')
         area_series = dict_data(avg_degree_connect, study_area_dir, 'avg_degree_connectivity', area, area_series)
         # avg_degree_connect_data = dict_data(avg_degree_connect, shp_path, 'avg_degree_connect')
         # attr_df.at['avg_degree_connectivity', area] = avg_degree_connect_data
@@ -258,15 +270,16 @@ def topology_attributes(study_area_dir, graph_file, area):
         # edge_betw_centr_data = dict_data(edge_betw_centr, shp_path, 'edge_betweenness')
         # attr_df.at['edge_betweenness', area] = edge_betw_centr_data
         # save_attr_df(attr_df, study_area_dir)
-    if pd.isnull(area_series['btw_acc_trip_production']):
-    # if pd.isnull(attr_df.loc['btw_acc_trip_production', area]):
+    # if pd.isnull(area_series['btw_acc_trip_production']):
+    # # if pd.isnull(attr_df.loc['btw_acc_trip_production', area]):
         # Check if files of previous calculated btw_acc exist:
-        if os.path.isfile(str(study_area_dir) + "/" + str(area) + "/attr_btw_acc_trip_generation.pkl"):
-            os.remove(str(study_area_dir) + "/" + str(area) + "/" + str(area) + "_btw_acc.shp")
+    grid_size = 2000
+    if os.path.isfile(str(study_area_dir) + "/" + str(area) + "/" + str(area) + "_btw_acc_" + str(grid_size) + "shp"):
+        os.remove(str(study_area_dir) + "/" + str(area) + "/" + str(area) + "_btw_acc_" + str(grid_size) + ".shp")
+    print('----------------------------------------------------------------------')
+    btw_acc(new_G, new_G5k, study_area_dir, area, nodes_dict, area_series, grid_size)
+    print('----------------------------------------------------------------------')
 
-        print('----------------------------------------------------------------------')
-        btw_acc(new_G, new_G5k, study_area_dir, area, nodes_dict, area_series)
-        print('----------------------------------------------------------------------')
         # dict_data(lim_edge_betw_centr, shp_path, 'lim_edge_betweenness*', area, attr_df)
         # lim_edge_betw_centr_data = dict_data(lim_edge_betw_centr, shp_path, 'lim_edge_betweenness')
         # attr_df.at['lim_edge_betweenness', area] = lim_edge_betw_centr_data
@@ -340,10 +353,20 @@ def topology_attributes(study_area_dir, graph_file, area):
     # Radius/Diameter of graph: radius is minimum eccentricity/The diameter is the maximum eccentricity.
     if pd.isnull(area_series['eccentricity']):
     # if pd.isnull(attr_df.loc['eccentricity', area]):
+    #     file = open(str(shp_path) + "/sp_dict.pkl", 'rb')
+    #     sp_dict = pickle.load(file)
+    #     eccentricity = nx.algorithms.distance_measures.eccentricity(new_G, sp=sp_dict)
+
         eccentricity = nx.algorithms.distance_measures.eccentricity(new_G)
         area_series = dict_data(eccentricity, study_area_dir, 'eccentricity', area, area_series)
         area_series = dict_data(min(eccentricity.values()), study_area_dir, 'radius', area, area_series)
         area_series = dict_data(max(eccentricity.values()), study_area_dir, 'diameter', area, area_series)
+    if pd.isnull(area_series['efficiency']):
+        file = open(str(shp_path) + "/attr_eccentricity.pkl", 'rb')
+        ecc_dict = pickle.load(file)
+        efficiency = (sum(list(ecc_dict.values())) / len(list(ecc_dict.values()))) * avg_link_time
+        # area_series = dict_data(eccentricity, study_area_dir, 'eccentricity_time', area, area_series)
+        area_series = dict_data(efficiency, study_area_dir, 'efficiency', area, area_series)
         # eccentricity_data = dict_data(eccentricity, shp_path, 'eccentricity')
         # attr_df.at['eccentricity', area] = eccentricity_data
         # attr_df.at['radius', area] = nx.radius(new_G)
@@ -384,6 +407,9 @@ def topology_attributes(study_area_dir, graph_file, area):
         # attr_df.at['network_distance', area] = total_len
         # print(datetime.datetime.now(), 'Total network distance: ' + str(total_len))
         # save_attr_df(attr_df, study_area_dir)
+
+
+
 
     # ----------------------------------------------------------------------
     # 11. OSMnx stats module
@@ -857,6 +883,39 @@ def topology_attributes(study_area_dir, graph_file, area):
 #     print('----------------------------------------------------------------------')
 #
 #     return attr_df, attributes
+
+
+    # this creates a dictionary of dictionaries with the distances between every pair of nodes
+    # if not os.path.isfile(str(shp_path) + '/' + 'sp_dict.pkl'):
+    #     print(datetime.datetime.now(), 'Computing sp_dict for eccentricity ...')
+    #     sp_dict = {}
+    #     count = 1
+    #     pbar = ProgressBar(widgets=[Bar('>', '[', ']'), ' ',
+    #                                 Percentage(), ' ',
+    #                                 ETA()], maxval=len(list(new_G.nodes)))
+    #     for j in pbar(list(new_G.nodes)):
+    #     # for j in list(new_G.nodes):
+    #     #     print((count/len(list(new_G.nodes))) * 100)
+    #         count += 1
+    #         node_sp = {}
+    #         for k in list(new_G.nodes):
+    #             if j == k:
+    #                 continue
+    #
+    #             # duration = 0
+    #             # path = nx.astar_path(new_diG, j, k)
+    #             # for i in range(0, len(path) - 1):
+    #             #     node1 = path[i]
+    #             #     node2 = path[i + 1]
+    #             #     time = new_diG[node1][node2]['time']
+    #             #     duration += time
+    #
+    #             duration = nx.shortest_path_length(new_diG, source=j, target=k, weight='time')
+    #             node_sp[k] = duration
+    #         sp_dict[j] = node_sp
+    #     with open(str(shp_path) + '/sp_dict.pkl', 'wb') as f:
+    #         pickle.dump(sp_dict, f, pickle.HIGHEST_PROTOCOL)
+
 
 
 # study_area_dir = r'C:\Users\Ion\TFM\data\study_areas'

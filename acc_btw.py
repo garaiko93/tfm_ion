@@ -64,12 +64,13 @@ def cutting_graph(study_area_dir, graph_file, area):
     print('----------------------------------------------------------------------')
 
 
-def dict_data(dicti, study_area_dir, attrib_name, area, area_series):
+def dict_data(dicti, study_area_dir, attrib_name, area, area_series, filename=None):
     shp_path = str(study_area_dir) + "/" + str(area)
     attr_df = pd.read_csv(str(study_area_dir) + '/' + 'attribute_table.csv', sep=",", index_col='attributes',
                           dtype=object)
     # if '*' in attrib_name: #this means DiGraph was used to compute attribute instead of MultiDiGraph
-    filename = ntpath.split(attrib_name)[1].split('*')[0]
+    if not filename:
+        filename = ntpath.split(attrib_name)[1].split('*')[0]
     study_area_dir = ntpath.split(shp_path)[0]
     if isinstance(dicti, dict):
         len_val = len(dicti)
@@ -191,7 +192,8 @@ def take_avg(study_area_dir, area, attributes):
                 # FLOAT ATTRIBUTES
                 elif attr_df.index[i] in ['network_distance', 'area', 'avg_degree', 'avg_edge_density',
                                           'avg_shortest_path_duration', 'streets_per_node', 'node_d_km',
-                                          'intersection_d_km', 'edge_d_km', 'street_d_km', 'circuity_avg']:
+                                          'intersection_d_km', 'edge_d_km', 'street_d_km', 'circuity_avg',
+                                          'avg_link_time', 'efficiency']:
                 # elif isinstance(value,float):
                     str_val = attr_df.iloc[i][column]
                     flo_val = float(str_val)
@@ -211,6 +213,8 @@ def take_avg(study_area_dir, area, attributes):
                     list_val = ast.literal_eval(str_val)
                     attr_df.at[attr_df.index[i], column] = list_val
                     attr_avg_df.at[attr_avg_df.index[i], column] = list_val[3]
+
+                # STRING ATTRIBUTES:
                 elif attr_df.index[i] in ['area_type']:
                     attr_avg_df.at[attr_avg_df.index[i], column] = attr_df.iloc[i][column]
 
@@ -388,7 +392,7 @@ def impedance_function(area_path, path_time=None, a=None, c=None, b=None):
     return f_tt
 
 
-def btw_acc(new_G, chG, study_area_dir, area, nodes_dict, area_series, grid_size=500):
+def btw_acc(new_G, chG, study_area_dir, area, nodes_dict, area_series, grid_size):
     # import nodes into study area: new_G.nodes()
     # import graph of full ch and transform into igraph
     # iterate over all pair of nodes in the study areas nodes by a maximum time
@@ -404,7 +408,6 @@ def btw_acc(new_G, chG, study_area_dir, area, nodes_dict, area_series, grid_size
 
     area_path = str(study_area_dir) + "/" + str(area)
     time_lim = 1200  # seconds
-    grid_size = 500  # meters
     # grid_size = 2000  # meters
     g = create_igraph(chG)
 
@@ -450,46 +453,51 @@ def btw_acc(new_G, chG, study_area_dir, area, nodes_dict, area_series, grid_size
         m_df.at[index, 'nodes_in_grid'] = nodes_in_grid
     print(datetime.datetime.now(), 'Closest node of every grid found.')
 
-    # add columns of ACC empl and ACC pop respectively to the df and export as shapefile:
-    # for facil in ['pop', 'empl', 'opt']:
-    for facil in ['pop', 'empl']:
-        # for facil in ['pop']:
-        print(datetime.datetime.now(), 'Calculating ' + str(facil) + ' accessibility for each grid area ...')
-        for index, row in m_df.iterrows():
-            # print(index)
-            if len(row['nodes_in_grid']) > 0:
-                j = str(random.choice(row['nodes_in_grid']))
-            else:
-                j = str(int(row['closest_node']))
-            facil_j = row[facil]  # iterate over pop, empl, opt
-            acc_list = []
-            for index2, row2 in m_df.iterrows():
-                if len(row2['nodes_in_grid']) > 0:
-                    k = str(random.choice(row2['nodes_in_grid']))
+    if not os.path.isfile(str(area_path) + "/" + str(area) + '_' + "facility_distribution_" +
+                  str(grid_size) + "gs.csv"):
+        # add columns of ACC empl and ACC pop respectively to the df and export as shapefile:
+        # for facil in ['pop', 'empl', 'opt']:
+        for facil in ['pop', 'empl']:
+            # for facil in ['pop']:
+            print(datetime.datetime.now(), 'Calculating ' + str(facil) + ' accessibility for each grid area ...')
+            for index, row in m_df.iterrows():
+                # print(index)
+                if len(row['nodes_in_grid']) > 0:
+                    j = str(random.choice(row['nodes_in_grid']))
                 else:
-                    k = str(int(row2['closest_node']))
-                if j == k:
-                    continue
-                # find sp and sum time
-                paths = g.get_shortest_paths(v=j, to=k, weights='time', mode='OUT', output="epath")
-                path_time = 0
-                for i in paths[0]:
-                    path_time += g.es[i]['time']
+                    j = str(int(row['closest_node']))
+                facil_j = row[facil]  # iterate over pop, empl, opt
+                acc_list = []
+                for index2, row2 in m_df.iterrows():
+                    if len(row2['nodes_in_grid']) > 0:
+                        k = str(random.choice(row2['nodes_in_grid']))
+                    else:
+                        k = str(int(row2['closest_node']))
+                    if j == k:
+                        continue
+                    # find sp and sum time
+                    paths = g.get_shortest_paths(v=j, to=k, weights='time', mode='OUT', output="epath")
+                    path_time = 0
+                    for i in paths[0]:
+                        path_time += g.es[i]['time']
 
-                # define impedance function
-                # try: #calibrated function based in trip travel times
-                # acc = facil_j * (a * math.exp(c * path_time) + b)
-                # except:
-                f_tt = impedance_function(area_path, path_time, a, c, b)
-                acc = facil_j * f_tt
-                acc_list.append(acc)
-            m_df.at[index, 'acc_' + str(facil)] = sum(acc_list)
-        print(datetime.datetime.now(), 'Computation of ' + str(facil) + ' accessibility finished.')
+                    # define impedance function
+                    # try: #calibrated function based in trip travel times
+                    # acc = facil_j * (a * math.exp(c * path_time) + b)
+                    # except:
+                    f_tt = impedance_function(area_path, path_time, a, c, b)
+                    acc = facil_j * f_tt
+                    acc_list.append(acc)
+                m_df.at[index, 'acc_' + str(facil)] = sum(acc_list)
+            print(datetime.datetime.now(), 'Computation of ' + str(facil) + ' accessibility finished.')
 
-    m_gdf = gpd.GeoDataFrame(m_df)
-    m_gdf = m_gdf.drop(['centroid', 'nodes_in_grid'], axis=1)
-    m_gdf.to_file(str(area_path) + "/" + str(area) + '_' + "facility_distribution_" +
-                  str(grid_size) + "gs.shp")
+        m_df.to_csv(str(area_path) + "/" + str(area) + '_' + "facility_distribution_" + str(grid_size) + "gs.csv", sep=",")
+        m_gdf = gpd.GeoDataFrame(m_df)
+        m_gdf = m_gdf.drop(['centroid', 'nodes_in_grid'], axis=1)
+        m_gdf.to_file(str(area_path) + "/" + str(area) + '_' + "facility_distribution_" +
+                      str(grid_size) + "gs.shp")
+    else:
+        m_df = pd.read_csv(str(area_path) + "/" + str(area) + '_' + "facility_distribution_" + str(grid_size) + "gs.csv", sep=",")
 
     # Compute btw_accessibility metrics:
     # First metric ('cPop_li'): quantifies the potential level of a link’s exposure in terms of trip
@@ -555,13 +563,10 @@ def btw_acc(new_G, chG, study_area_dir, area, nodes_dict, area_series, grid_size
                 for link in list(way_sp):
                     c_pop = (way_sp[link] / len(paths)) * weight_C_facil
                     cA_pop = (way_sp[link] / len(paths)) * weight_Ca_facil
-                    # print('1: ', c_pop, cA_pop)
                     if not cPop_li.get(link):
                         cPop_li[link] = [c_pop]
                         cApop_li[link] = [cA_pop]
-                        # print(cPop_li[link], cApop_li[link])
                     else:
-                        # print(cPop_li[link])
                         a_list = cPop_li[link]
                         a_list.append(c_pop)
                         cPop_li[link] = a_list
@@ -576,23 +581,20 @@ def btw_acc(new_G, chG, study_area_dir, area, nodes_dict, area_series, grid_size
         tot_acc = m_df['acc_' + str(facil)].sum()
 
         # Load geodataframe with every link of network to add btw-acc values
-        if os.path.isfile(str(area_path) + "/" + str(area) + "_btw_acc.shp"):
-            links_gdf = gpd.read_file(str(area_path) + "/" + str(area) + "_btw_acc.shp")
+        if os.path.isfile(str(area_path) + "/" + str(area) + "_btw_acc_" + str(grid_size) + ".shp"):
+            links_gdf = gpd.read_file(str(area_path) + "/" + str(area) + "_btw_acc_" + str(grid_size) + ".shp")
         else:
             links_gdf = gpd.read_file(str(area_path) + "/" + str(area) + "_network_5k.shp")
             links_gdf['btw_check'] = 0
 
         links_gdf['btw_' + str(facil)] = 0
         links_gdf['btw_Acc_' + str(facil)] = 0
-        # print(len(cPop_li), len(cApop_li))
         for link in list(cPop_li):
-            # print(link)
             cPop_li[link] = sum(cPop_li[link]) / tot_pop
             cApop_li[link] = sum(cApop_li[link]) / tot_acc
 
             # update gdf of network with obtained values
             ix = links_gdf.index[links_gdf['way_id'] == link][0]
-            # print(ix)
 
             links_gdf.loc[ix, 'btw_' + str(facil)] = cPop_li[link]
             links_gdf.loc[ix, 'btw_Acc_' + str(facil)] = cApop_li[link]
@@ -611,14 +613,176 @@ def btw_acc(new_G, chG, study_area_dir, area, nodes_dict, area_series, grid_size
         if btw_check != 1:
             indexes.append(index3)
     links_gdf = links_gdf.drop(links_gdf.index[indexes])
-    links_gdf.to_file(str(area_path) + "/" + str(area) + "_btw_acc.shp")
+    links_gdf.to_file(str(area_path) + "/" + str(area) + "_btw_acc_" + str(grid_size) + ".shp")
 
     # Export dictionaries and save values in attributes table
-    dict_data(cPop_li, study_area_dir, 'btw_home_trip_production', area, area_series)
-    dict_data(cEmpl_li, study_area_dir, 'btw_empl_trip_generation', area, area_series)
+    dict_data(cPop_li, study_area_dir, 'btw_home_trip_production', area, area_series, 'btw_home_trip_production' + str(grid_size) + 'gs')
+    dict_data(cEmpl_li, study_area_dir, 'btw_empl_trip_generation', area, area_series, 'btw_empl_trip_generation' + str(grid_size) + 'gs')
 
-    dict_data(cApop_li, study_area_dir, 'btw_acc_trip_generation', area, area_series)
-    dict_data(cAempl_li, study_area_dir, 'btw_acc_trip_production', area, area_series)
+    dict_data(cApop_li, study_area_dir, 'btw_acc_trip_generation', area, area_series, 'btw_acc_trip_generation' + str(grid_size) + 'gs')
+    dict_data(cAempl_li, study_area_dir, 'btw_acc_trip_production', area, area_series, 'btw_acc_trip_production' + str(grid_size) + 'gs')
 
     print(datetime.datetime.now(), 'Betweenness-accessibility metrics computation finished.')
 # return edge_btw_acc
+
+
+def eccentricity(G, v=None, sp=None):
+    """Returns the eccentricity of nodes in G.
+
+    The eccentricity of a node v is the maximum distance from v to
+    all other nodes in G.
+
+    Parameters
+    ----------
+    G : NetworkX graph
+       A graph
+
+    v : node, optional
+       Return value of specified node
+
+    sp : dict of dicts, optional
+       All pairs shortest path lengths as a dictionary of dictionaries
+
+    Returns
+    -------
+    ecc : dictionary
+       A dictionary of eccentricity values keyed by node.
+    """
+#    if v is None:                # none, use entire graph
+#        nodes=G.nodes()
+#    elif v in G:               # is v a single node
+#        nodes=[v]
+#    else:                      # assume v is a container of nodes
+#        nodes=v
+    order = G.order()
+
+    e = {}
+    for n in G.nbunch_iter(v):
+        if sp is None:
+            length = nx.single_source_shortest_path_length(G, n)
+            L = len(length)
+        else:
+            try:
+                length = sp[n]
+                L = len(length)
+            except TypeError:
+                raise nx.NetworkXError('Format of "sp" is invalid.')
+        if L != order:
+            if G.is_directed():
+                msg = ('Found infinite path length because the digraph is not'
+                       ' strongly connected')
+            else:
+                msg = ('Found infinite path length because the graph is not'
+                       ' connected')
+            raise nx.NetworkXError(msg)
+
+        e[n] = max(length.values())
+
+    if v in G:
+        return e[v]  # return single value
+    else:
+        return e
+
+
+
+# btw_acc(new_G, chG, study_area_dir, area, nodes_dict, area_series, grid_size=500)
+# def opt_btw(new_G, chG, study_area_dir, area, nodes_dict, area_series):
+#     g = create_igraph(chG)
+#
+#     for j in list(new_G.nodes):
+#         for k in list(new_G.nodes):
+#             if j == k:
+#                 continue
+#
+#             paths = g.get_shortest_paths(v=j, to=k, weights='time', mode='OUT', output="epath")
+#             path_time = 0
+#             way_sp = {}  # stores the number of occurrencies of each link in the shortest paths: d[way_id] = int
+#             for path in paths:
+#                 for i in path:
+#                     path_time += g.es[i]['time']
+#                     way_id = g.es[i]['name']
+#                     start_node = i.source
+#                     end_node = i.target
+#                     if not way_sp.get(way_id):
+#                         way_sp[way_id] = 1
+#                     else:
+#                         way_sp[way_id] += 1
+#
+#
+#     for index, row_j in m_df.iterrows():
+#         if len(row_j['nodes_in_grid']) > 0:
+#             j = str(random.choice(row_j['nodes_in_grid']))
+#         else:
+#             j = str(int(row_j['closest_node']))
+#
+#         acc_j = row_j['acc_' + str(other_facil)]  # iterate over pop, empl
+#         facil_j = row_j[facil]
+#         if acc_j == 0:
+#             continue
+#
+#         for index2, row_k in m_df.iterrows():
+#             if len(row_k['nodes_in_grid']) > 0:
+#                 k = str(random.choice(row_k['nodes_in_grid']))
+#             else:
+#                 k = str(int(row_k['closest_node']))
+#
+#             facil_k = row_k[other_facil]
+#             facil2_k = row_k[facil]
+#             if j == k:
+#                 continue
+#
+#             # Compute shortest paths for j, k
+#             paths = g.get_shortest_paths(v=j, to=k, weights='time', mode='OUT', output="epath")
+#             path_time = 0
+#             way_sp = {}  # stores the number of occurrencies of each link in the shortest paths: d[way_id] = int
+#             for path in paths:
+#                 for i in path:
+#                     path_time += g.es[i]['time']
+#                     way_id = g.es[i]['name']
+#                     if not way_sp.get(way_id):
+#                         way_sp[way_id] = 1
+#                     else:
+#                         way_sp[way_id] += 1
+#
+#             weight_C_facil = facil_j * ((facil_k * f_tt) / acc_j)
+#             weight_Ca_facil = facil2_k * f_tt
+#
+#             for link in list(way_sp):
+#                 c_pop = (way_sp[link] / len(paths)) * weight_C_facil
+#                 cA_pop = (way_sp[link] / len(paths)) * weight_Ca_facil
+#                 if not cPop_li.get(link):
+#                     cPop_li[link] = [c_pop]
+#                     cApop_li[link] = [cA_pop]
+#                 else:
+#                     a_list = cPop_li[link]
+#                     a_list.append(c_pop)
+#                     cPop_li[link] = a_list
+#
+#                     b_list = cApop_li[link]
+#                     b_list.append(cA_pop)
+#                     cApop_li[link] = b_list
+#
+#     # Finally, for every link, compute sum of every pair of nodes, obtaining betweenness values
+#     # Define absolute values for normalization:
+#     tot_pop = m_df[facil].sum()
+#     tot_acc = m_df['acc_' + str(facil)].sum()
+#
+#     # Load geodataframe with every link of network to add btw-acc values
+#     if os.path.isfile(str(area_path) + "/" + str(area) + "_btw_acc.shp"):
+#         links_gdf = gpd.read_file(str(area_path) + "/" + str(area) + "_btw_acc.shp")
+#     else:
+#         links_gdf = gpd.read_file(str(area_path) + "/" + str(area) + "_network_5k.shp")
+#         links_gdf['btw_check'] = 0
+#
+#     links_gdf['btw_' + str(facil)] = 0
+#     links_gdf['btw_Acc_' + str(facil)] = 0
+#     for link in list(cPop_li):
+#         cPop_li[link] = sum(cPop_li[link]) / tot_pop
+#         cApop_li[link] = sum(cApop_li[link]) / tot_acc
+#
+#         # update gdf of network with obtained values
+#         ix = links_gdf.index[links_gdf['way_id'] == link][0]
+#
+#         links_gdf.loc[ix, 'btw_' + str(facil)] = cPop_li[link]
+#         links_gdf.loc[ix, 'btw_Acc_' + str(facil)] = cApop_li[link]
+#         links_gdf.loc[ix, 'btw_check'] = 1

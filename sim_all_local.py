@@ -67,7 +67,7 @@ for av_share in [0.2, 0.4, 0.6, 0.8, 1.0]:
         print('----------------------------------------------------------------------')
 
     # one improve could be to change the fleet size increase for the low avshare values (0.2 and 0.4) which needs to be closer
-    # and increase the one of the av share high values of 0.8 and 1.0 
+    # and increase the one of the av share high values of 0.8 and 1.0
     # Update initial fleet size for new av-share
     init_fleet_size = init_fleet_size + init_fleet_size_incr
 
