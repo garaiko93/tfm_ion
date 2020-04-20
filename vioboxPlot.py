@@ -199,7 +199,7 @@ def removeOutliers(data, thresholdStd = 3):
 
 # Implementation of violinboxplot
 def violinboxplot(data, x=None, y=None, labels=None, outliers=True,
-                  title='violinboxplot', showModes=True, showCounts=True,
+                  title=None, showModes=True, showCounts=True,
                   logPercentile=None, ax=None):
     from mpl_toolkits.axes_grid1 import make_axes_locatable
     from matplotlib.ticker import ScalarFormatter, NullFormatter
@@ -238,17 +238,37 @@ def violinboxplot(data, x=None, y=None, labels=None, outliers=True,
     """
 
     # Helper functions
-    def basicPlot(ax, data, xlim1=None, xlim2=None):
+    def basicPlot(ax, data, labels, xlim1=None, xlim2=None):
         """
         The actual plotting function. This method will be called a second time
         if logPercentile parameter is set, providing a secondary axis
         """
 
         parts = ax.violinplot(data, showmeans=False, showmedians=False, showextrema=False, vert=False);
-        for pc in parts['bodies']:
-            pc.set_facecolor('#6290db')
+        for i in range(len(parts['bodies'])):
+            pc = parts['bodies'][i]
+            label = labels[i]
+            # print(label, pc)
+
+            urban = ['luzern', 'bern', 'zurich_kreis', 'lausanne', 'lugano', 'stgallen']
+            rural = ['freiburg', 'neuchatel', 'plateau']
+            mountain = ['chur', 'sion', 'linthal', 'frutigen',  'zermatt', 'locarno']
+
+            if label in urban:
+                pc.set_facecolor('#6290db')
+            elif label in rural:
+                pc.set_facecolor('#cf1dab')
+            elif label in mountain:
+                pc.set_facecolor('#36d957')
+
+            # pc.set_facecolor('#6290db')
             pc.set_edgecolor('#4a6591')
             pc.set_alpha(0.8)
+
+        # for pc in parts['bodies']:
+        #     pc.set_facecolor('#6290db')
+        #     pc.set_edgecolor('#4a6591')
+        #     pc.set_alpha(0.8)
         ax.boxplot(data, vert=False);
 
         if xlim1 is not None and xlim2 is not None:
@@ -284,7 +304,7 @@ def violinboxplot(data, x=None, y=None, labels=None, outliers=True,
 
         return data, labels
 
-    def plotData(data, ax, logPercentile):
+    def plotData(data, ax, logPercentile, labels):
         """
         This method handles the split between log percentile and uniaxis case.
         For the case of logpercentile we need to send to the plot data function
@@ -295,18 +315,18 @@ def violinboxplot(data, x=None, y=None, labels=None, outliers=True,
             globalMax = np.max(np.concatenate(data))
             globalMax = globalMax + globalMax * 0.1
             split = np.percentile(np.concatenate(data), 90)
-            basicPlot(ax, data, globalMin, split)
+            basicPlot(ax, data, labels, globalMin, split)
 
             divider = make_axes_locatable(ax)  # create log axis
             axLog = divider.append_axes("right", size=3, pad=0.02)
             axLog.set_xscale('log')
-            basicPlot(axLog, data, split, globalMax)
+            basicPlot(axLog, data, labels, split, globalMax)
             axLog.set_yticks([])  # no annoations, we use the ones from the linear axis
             axLog.xaxis.set_minor_formatter(ScalarFormatter())
             axLog.xaxis.set_major_formatter(NullFormatter())
 
         else:
-            basicPlot(ax, data)
+            basicPlot(ax, data, labels)
 
     ## Logic starts here
     data, labels = prepareData(data, labels)
@@ -314,7 +334,7 @@ def violinboxplot(data, x=None, y=None, labels=None, outliers=True,
         plt.figure(figsize=(16, len(data) * 0.5))
         # plt.figure(figsize=(16, len(data)*1.5))
         ax = plt.gca()
-    plotData(data, ax, logPercentile)
+    plotData(data, ax, logPercentile, labels)
     if labels is not None:  # set labels
         ax.set_yticklabels(labels)
     plt.title(title) if logPercentile is None else plt.suptitle(title)

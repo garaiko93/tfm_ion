@@ -216,7 +216,8 @@ def topology_attributes(study_area_dir, graph_file, area):
     # 3. CONNECTIVITY:  is the average nearest neighbor degree of nodes with degree k
     if pd.isnull(area_series['avg_degree_connectivity']):
     # if pd.isnull(attr_df.loc['avg_degree_connectivity', area]):
-        avg_degree_connect = nx.average_degree_connectivity(new_G, weight='time')
+        avg_degree_connect = nx.average_degree_connectivity(new_G)
+        # avg_degree_connect = nx.average_degree_connectivity(new_G, weight='time')
         area_series = dict_data(avg_degree_connect, study_area_dir, 'avg_degree_connectivity', area, area_series)
         # avg_degree_connect_data = dict_data(avg_degree_connect, shp_path, 'avg_degree_connect')
         # attr_df.at['avg_degree_connectivity', area] = avg_degree_connect_data
@@ -270,15 +271,15 @@ def topology_attributes(study_area_dir, graph_file, area):
         # edge_betw_centr_data = dict_data(edge_betw_centr, shp_path, 'edge_betweenness')
         # attr_df.at['edge_betweenness', area] = edge_betw_centr_data
         # save_attr_df(attr_df, study_area_dir)
-    # if pd.isnull(area_series['btw_acc_trip_production']):
+    if pd.isnull(area_series['btw_acc_trip_production']):
     # # if pd.isnull(attr_df.loc['btw_acc_trip_production', area]):
         # Check if files of previous calculated btw_acc exist:
-    grid_size = 2000
-    if os.path.isfile(str(study_area_dir) + "/" + str(area) + "/" + str(area) + "_btw_acc_" + str(grid_size) + "shp"):
-        os.remove(str(study_area_dir) + "/" + str(area) + "/" + str(area) + "_btw_acc_" + str(grid_size) + ".shp")
-    print('----------------------------------------------------------------------')
-    btw_acc(new_G, new_G5k, study_area_dir, area, nodes_dict, area_series, grid_size)
-    print('----------------------------------------------------------------------')
+        grid_size = 500
+        if os.path.isfile(str(study_area_dir) + "/" + str(area) + "/" + str(area) + "_btw_acc_" + str(grid_size) + "shp"):
+            os.remove(str(study_area_dir) + "/" + str(area) + "/" + str(area) + "_btw_acc_" + str(grid_size) + ".shp")
+        print('----------------------------------------------------------------------')
+        btw_acc(new_G, new_G5k, study_area_dir, area, nodes_dict, area_series, grid_size)
+        print('----------------------------------------------------------------------')
 
         # dict_data(lim_edge_betw_centr, shp_path, 'lim_edge_betweenness*', area, attr_df)
         # lim_edge_betw_centr_data = dict_data(lim_edge_betw_centr, shp_path, 'lim_edge_betweenness')

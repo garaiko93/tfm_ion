@@ -498,6 +498,7 @@ def btw_acc(new_G, chG, study_area_dir, area, nodes_dict, area_series, grid_size
                       str(grid_size) + "gs.shp")
     else:
         m_df = pd.read_csv(str(area_path) + "/" + str(area) + '_' + "facility_distribution_" + str(grid_size) + "gs.csv", sep=",")
+        print('Load csv found')
 
     # Compute btw_accessibility metrics:
     # First metric ('cPop_li'): quantifies the potential level of a link’s exposure in terms of trip
