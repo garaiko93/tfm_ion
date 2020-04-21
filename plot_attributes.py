@@ -1,6 +1,6 @@
 import matplotlib as mpl
-mpl.use('agg')
-# mpl.use('TkAgg')
+mpl.use('agg') #only save
+# mpl.use('TkAgg') #see plot
 import matplotlib.pyplot as plt
 import pickle
 import pandas as pd
@@ -13,11 +13,21 @@ import numpy as np
 # functions from other scripts
 from vioboxPlot import violinboxplot
 
+def save_plot(fig, path, fig_name):
+    i = 0
+    fig_path = str(path) + '/' + str(fig_name) + str(i) + '.png'
+    while os.path.isfile(fig_path):
+        i += 1
+        fig_path = str(path) + '/' + str(fig_name) + str(i) + '.png'
+    fig.savefig(fig_path)
+    print('Plot saved: ' + str(fig_name))
+
+
 # -----------------------------------------------------------------------------
 # PLOT OF DICTIONARY SHAPE ATTRIBUTES
 # -----------------------------------------------------------------------------
 # DATA PREPARATION TO PLOT
-def data_setup(study_areas, attr_name, plot_title, list_areas):
+def data_setup(study_areas, attr, plot_title, list_areas):
     if list_areas == 'All':
         areas = ['zermatt', 'locarno', 'chur', 'sion', 'linthal', 'frutigen', 'freiburg', 'neuchatel', 'plateau', 'luzern', 'bern',
                  'zurich_kreis', 'lausanne', 'lugano', 'stgallen']
@@ -34,7 +44,7 @@ def data_setup(study_areas, attr_name, plot_title, list_areas):
     x_axis = []
     for area in areas:
         study_area_dir = str(study_areas) + '/' + str(area)
-        file = open(str(study_area_dir) + "/attr_" + str(attr_name) + ".pkl", 'rb')
+        file = open(str(study_area_dir) + "/attr_" + str(attr) + ".pkl", 'rb')
         attr_dict = pickle.load(file)
 
         data = list(attr_dict.values())
@@ -74,9 +84,9 @@ def data_setup(study_areas, attr_name, plot_title, list_areas):
     #               title=str(plot_title) + " - " + str(list_areas) + " Study Areas", logPercentile=logPercentile)
 
     violinboxplot(data_to_plot, labels=x_axis, ax=ax, showModes=True, showCounts=True, outliers=outliers, logPercentile=logPercentile)
-    plt.savefig(r'C:/Users/Ion/TFM/data/plots/attribute_plots/' + str(list_areas) + '/' + str(attr_name) + '.png')
+    plt.savefig(r'C:/Users/Ion/TFM/data/plots/attribute_plots/' + str(list_areas) + '/' + str(attr) + '.png')
     # plt.savefig(r'C:/Users/Ion/TFM/' + str(attr_name) + '.png')
-    print('Plot saved: ' + str(list_areas) + ' ' + str(attr_name))
+    print('Plot saved: ' + str(list_areas) + ' ' + str(attr))
 
 
 attr_dict = {
@@ -105,6 +115,110 @@ attr_dict = {
 # for env in ['All', 'Rural', 'Urban', 'Mountain']:
 #     for attr in list(attr_dict):
 #         data_setup('C:/Users/Ion/TFM/data/study_areas/', attr, attr_dict[attr], env)
+
+
+# -----------------------------------------------------------------------------
+# GRID PLOT OF ATTRIBUTES
+# -----------------------------------------------------------------------------
+
+# https://towardsdatascience.com/visualizing-data-with-pair-plots-in-python-f228cf529166
+# https://towardsdatascience.com/histograms-and-density-plots-in-python-f6bda88f5ac0
+def grid_plot(df, fig_name):
+    # Function to calculate correlation coefficient between two arrays
+    def corr(x, y, **kwargs):
+        # Calculate the value
+        coef = np.corrcoef(x, y)[0][1]
+        # Make the label
+        label = r'$\rho$ = ' + str(round(coef, 2))
+        # label = r'$\rho$ = ' + str("{:.3f}".format(coef))
+
+        # Add the label to the plot
+        ax = plt.gca()
+        ax.annotate(label, xy=(0.2, 0.95), size=20, xycoords=ax.transAxes)
+
+    # Create a pair grid instance
+    grid = sb.PairGrid(data=df, hue='area_type', palette="husl")
+    # grid = sb.PairGrid(data=df, hue='area_type', palette="husl", height=4, aspect=1)
+    # grid = sb.PairGrid(data=df)
+
+    # Map the plots to the locations
+    grid = grid.map_upper(plt.scatter)
+    grid = grid.map_upper(corr, corre=True)
+    grid = grid.map_lower(sb.kdeplot)
+    grid = grid.map_diag(plt.hist, bins=5, edgecolor='k')
+    # grid = grid.map_diag(sb.distplot, hist=False)
+    return grid
+
+
+def facet_plot(df):
+    for i in range(len(df)):
+        for column in df.columns:
+            try:
+                # FLOAT ATTRIBUTES
+                str_val = df.iloc[i][column]
+                flo_val = float(str_val)
+                df.at[df.index[i], column] = flo_val
+            except:
+                pass
+
+    # plt.figure(figsize=(15, 8))
+    plt.rcParams.update({'font.size': 13})
+    sb.set_style("ticks")
+    # sb.pairplot(df2, hue='area_type', diag_kind="kde", kind="scatter", palette="husl")
+    sb.pairplot(df, hue='area_type', diag_kind="kde", kind="scatter", palette="husl", plot_kws = {'alpha': 0.6, 's': 80, 'edgecolor': 'k'})
+    # plt.show()
+    return plt
+
+# Pair wise plot
+study_area_dir = 'C:/Users/Ion/TFM/data/study_areas'
+df = pd.read_csv(str(study_area_dir) + '/' + 'attribute_table_AVG_T.csv', sep=",")
+
+# Different facet plots:
+df_plots = [
+    [['network_distance', 'efficiency', 'node_straightness', 'eccentricity', 'avg_shortest_path_duration', 'area_type'], 'random'],
+    [['network_distance', 'node_d_km', 'edge_d_km', 'intersection_d_km', 'street_d_km', 'area_type'], 'densities'],
+    [['network_distance', 'population', 'trips', 'area', 'circuity_avg', 'area_type'], 'dimensionless'],
+    [['network_distance', 'avg_degree_connectivity', 'avg_edge_density', 'degree_centrality', 'avg_neighbor_degree', 'area_type'], 'degrees'],
+    [['network_distance', 'clustering*', 'node_betweenness*', 'edge_betweenness', 'street_d_km', 'area_type'], 'dicts'],
+    [['network_distance', 'btw_home_trip_production', 'btw_empl_trip_generation', 'btw_acc_trip_generation', 'btw_acc_trip_production', 'area_type'], 'btw_acc']
+    # [['network_distance', 'avg_degree_connectivity', 'intersection_d_km', 'avg_neighbor_degree', 'area_type'], 'btw_acc']
+            ]
+
+# for df_selection in df_plots:
+#     # fig = facet_plot(df[df_selection[0]])
+#     fig = grid_plot(df[df_selection[0]], df_selection[1])
+#
+#     # Save plot
+#     save_plot(fig, 'C:/Users/Ion/TFM/data/plots/facetPlot', df_selection[1])
+
+
+# -----------------------------------------------------------------------------
+# CORRELATION MATRIX
+# -----------------------------------------------------------------------------
+import pandas as pd
+import seaborn as sb
+import matplotlib.pyplot as plt
+plt.use('agg') #only save
+# plt.use('TkAgg') #see plot
+import os
+
+def correlation_matrix(df):
+    plt.figure(figsize=(28, 16))
+    plt.rcParams.update({'font.size': 10})
+
+    corrMatrix = df.corr()
+    sb.heatmap(corrMatrix, annot=True)
+    plt.gcf().subplots_adjust(bottom=0.15)
+    # plt.show()
+
+    save_plot(plt, 'C:/Users/Ion/TFM/data/plots/attribute_plots/correlation_matrix', 'correlation_matrix')
+
+
+# study_area_dir = 'C:/Users/Ion/TFM/data/study_areas'
+# df = pd.read_csv(str(study_area_dir) + '/' + 'attribute_table_AVG_T.csv', sep=",", index_col='study_area')
+# df.drop(['area_type'], axis=1, inplace=True)
+#
+# correlation_matrix(df)
 
 
 
@@ -146,76 +260,7 @@ attr_dict = {
 # plt.plot(rural, list_values)
 #
 
-# https://towardsdatascience.com/visualizing-data-with-pair-plots-in-python-f228cf529166
-# https://towardsdatascience.com/histograms-and-density-plots-in-python-f6bda88f5ac0
-def grid_plot(df):
-    # Function to calculate correlation coefficient between two arrays
-    def corr(x, y, **kwargs):
-        # Calculate the value
-        coef = np.corrcoef(x, y)[0][1]
-        # Make the label
-        label = r'$\rho$ = ' + str(round(coef, 2))
 
-        # Add the label to the plot
-        ax = plt.gca()
-        ax.annotate(label, xy=(0.2, 0.95), size=20, xycoords=ax.transAxes)
-
-    # Create a pair grid instance
-    grid = sb.PairGrid(data=df, hue='area_type', palette="husl")
-    # grid = sb.PairGrid(data=df)
-
-    # Map the plots to the locations
-    grid = grid.map_upper(plt.scatter)
-    grid = grid.map_upper(corr, corre=True)
-    grid = grid.map_lower(sb.kdeplot)
-    # grid = grid.map_diag(sb.distplot, hist=False)
-    grid = grid.map_diag(plt.hist, bins=5, edgecolor='k')
-
-    fig_name = 'C:/Users/Ion/TFM/data/plots/attribute_plots/facetPlot/facetplot6.png'
-    grid.savefig(fig_name)
-
-
-def facet_plot(df):
-    for i in range(len(df)):
-        for column in df.columns:
-            try:
-                # FLOAT ATTRIBUTES
-                str_val = df.iloc[i][column]
-                flo_val = float(str_val)
-                df.at[df.index[i], column] = flo_val
-            except:
-                pass
-
-    # plt.figure(figsize=(15, 8))
-    plt.rcParams.update({'font.size': 13})
-    sb.set_style("ticks")
-    # sb.pairplot(df2, hue='area_type', diag_kind="kde", kind="scatter", palette="husl")
-    sb.pairplot(df, hue='area_type', diag_kind="kde", kind="scatter", palette="husl", plot_kws = {'alpha': 0.6, 's': 80, 'edgecolor': 'k'})
-    # plt.show()
-
-    fig_name = 'C:/Users/Ion/TFM/data/plots/attribute_plots/facetPlot/facetplot3.png'
-    plt.savefig(fig_name)
-    if not os.path.isfile(fig_name):
-        plt.savefig(fig_name)
-
-# --------------------------------
-# Pair wise plot
-study_area_dir = 'C:/Users/Ion/TFM/data/study_areas'
-df = pd.read_csv(str(study_area_dir) + '/' + 'attribute_table_AVG_T.csv', sep=",")
-
-# Different facet plots:
-# df_selection = ['network_distance', 'node_d_km', 'edge_d_km', 'node_straightness', 'eccentricity', 'node_closeness_time*', 'area_type'] # first facetplot, random metrics
-# df_selection = ['network_distance', 'node_d_km', 'edge_d_km', 'intersection_d_km', 'street_d_km', 'area_type']
-# df_selection = ['network_distance', 'node_d_km', 'edge_d_km', 'intersection_d_km', 'street_d_km', 'area_type']
-df_selection = ['network_distance', 'node_d_km', 'edge_d_km', 'intersection_d_km', 'street_d_km', 'area_type']
-
-# facet_plot(df[df_selection])
-grid_plot(df[df_selection])
-# --------------------------------
-
-
-# df = sb.load_dataset('iris')
-# sb.pairplot(df[['sepal_length', 'sepal_width', 'species']], hue='species', diag_kind="kde", kind="scatter", palette="husl")
 
 # -----------------------------------------------------------------------------
 # VIOBOXPLOT FUNCTION CALL

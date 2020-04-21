@@ -282,7 +282,7 @@ def take_avg(study_area_dir, area, attributes):
 
     # delete some columns and rows in avg table
     attr_avg_df = attr_avg_df.drop(index=['center_nodes', 'periphery_nodes', 'barycenter_nodes', 'clustering_w*'],
-                                   columns=['bern_large', 'zurich_large', 'lausanne_lake'])
+                                   columns=['bern_large', 'zurich_large', 'lausanne_lake', 'test_area'])
 
     # create a transpose of the matrix
     attr_avg_dfT = attr_avg_df.transpose()

@@ -17,7 +17,7 @@ def tend_curve(df, column):
     def exponential(x, a, k, b):
         return a * np.exp(-k * x) + b
     def inv_exponential(y, a, k, b):
-        return (1 / k) * math.log(a / (y - b))
+        return (1 / k) * np.log(a / (y - b))
 
     def quadratic(x, a, k, b):
         return a * x** 2 + k * x + b
@@ -27,8 +27,8 @@ def tend_curve(df, column):
         d = (k ** 2) - (4 * a * c)
 
         # find two solutions
-        sol1 = (-k - cmath.sqrt(d)) / (2 * a)
-        sol2 = (-k + cmath.sqrt(d)) / (2 * a)
+        sol1 = (-k - np.sqrt(d)) / (2 * a)
+        sol2 = (-k + np.sqrt(d)) / (2 * a)
 
         if sol1 < 0:
             return sol2
@@ -55,31 +55,50 @@ def tend_curve(df, column):
             y = y.drop(labels=[ix])
     x = y.index
 
+    # Select which (exponential/quadratic) curves have less error on the fitting
     exp_error = error_f(x, y, exponential)
     quad_error = error_f(x, y, quadratic)
 
     if exp_error > quad_error:
         model_func = quadratic
         inv_func = inv_quadratic
+        check_q = True
         print('quadratic better')
     else:
         model_func = exponential
         inv_func = inv_exponential
+        check_q = False
         print('exponential better')
 
+    # Fit only with exponential curve
+    # model_func = exponential
+    # inv_func = inv_exponential
 
     opt, pcov = curve_fit(model_func, x, y, p0=(1., 1.e-5, 1.), maxfev=10000)
     a, k, b = opt
-    # print(a, k, b)
-    # test result
-    x2 = np.linspace(min(x), max(x), 1000)
-    y2 = model_func(x2, a, k, b)
 
     # Get threshold value of the fitted curve for a threshold of 300 wt
-    threshold = math.ceil(inv_func(300, a, k, b))
-    print('for: ' + str(column) + ' fleet size of: ' + str(threshold))
+    opt_fs = int(np.rint(inv_func(300, a, k, b)))
 
-    return x2, y2, threshold
+    # define limits to plot
+    if check_q:
+        # this way, only one side of the parabola is plotted, until the derivate is max/min
+        dx = -k / (2 * a)
+        if dx > min(x) and dx < max(x):
+            if opt_fs < dx:
+                x2 = np.linspace(min(x), dx, 1000)
+            else:
+                x2 = np.linspace(dx, max(x), 1000)
+        else:
+            x2 = np.linspace(min(x), max(x), 1000)
+        y2 = model_func(x2, a, k, b)
+    else:
+        x2 = np.linspace(min(x), max(x), 1000)
+        y2 = model_func(x2, a, k, b)
+
+    print('for: ' + str(column) + ' fleet size of: ' + str(opt_fs))
+
+    return x2, y2, opt_fs
 
     # fig, ax = plt.subplots()
     # ax.plot(x2, y2, color='r', label='Fit. func: $f(x) = %.3f e^{%.9f x} %+.3f$' % (a, k, b))
@@ -120,7 +139,7 @@ def plot_fc(area_path):
     area = ntpath.split(area_path)[1]
     study_area_path = ntpath.split(area_path)[0]
     data_path = ntpath.split(study_area_path)[0]
-    plot_path = str(data_path) + '/plots/sim_plots/try'
+
 
     df_name = 'avg_df'
     df = pd.read_csv(str(area_path) + '/simulations/' + str(df_name) + '.csv', sep=",", index_col='fleet_size')
@@ -129,18 +148,21 @@ def plot_fc(area_path):
     plt.figure(figsize=(15, 8))
     plt.rcParams.update({'font.size': 18})
     plt.style.use('seaborn-darkgrid')
+
     # create a color palette
     palette = plt.get_cmap('tab10')
+
     # multiple line plot
     num = 0
-    threshold_dict = {}
     for column in df:
+        # fit curve out of simulation results
         x = df.index
         y = df[column]
-        xx, yy, threshold = tend_curve(df, column)
-        df_update(study_area_path, column, threshold, area)
-        # plt.plot(x, y, 'o', xx, yy, color=palette(num), label=column)
-        # plt.plot(df.index, df[column], marker='', color=palette(num), linewidth=1, alpha=0.9, label=column)
+        xx, yy, opt_fs = tend_curve(df, column)
+
+        # Save opt fs value for 300s waiting time in dataframe
+        df_update(study_area_path, column, opt_fs, area)
+
         plt.scatter(x, y, color=palette(num), label=column)
         plt.plot(xx, yy, color=palette(num), linestyle='dashed')
         num += 1
@@ -171,10 +193,12 @@ def plot_fc(area_path):
     # Add titles
     # plt.title('AV simulation results for: ' + str(area) + ' (10pct swiss census)', fontsize=16, fontweight=0,
     #           color='orange')
-    plt.xlabel("AVs Fleet Size", fontsize=14)
-    plt.ylabel("Waiting Time (s)", fontsize=14)
+    plt.xlabel("AVs Fleet Size", fontsize=16)
+    plt.ylabel("Waiting Time (s)", fontsize=16)
 
     # plt.savefig(str(area_path) + '/simulations/' + str(df_name) + '.png')
+
+    plot_path = str(data_path) + '/plots/sim_plots'
     plt.savefig(str(plot_path) + '/' + str(area) + '.png')
 
 
@@ -197,11 +221,6 @@ for area in study_area_list:
         continue
     area_path = str(study_area_dir) + '/' + str(area)
     plot_fc(area_path)
-
-
-
-
-
 
 
 

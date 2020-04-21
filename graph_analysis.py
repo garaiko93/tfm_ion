@@ -403,7 +403,7 @@ def topology_attributes(study_area_dir, graph_file, area):
         total_len = 0
         for nod in nodes_list:
             total_len += nod[2]
-
+        total_len = total_len / 1000 #transform from m to km
         area_series = dict_data(total_len, study_area_dir, 'network_distance', area, area_series)
         # attr_df.at['network_distance', area] = total_len
         # print(datetime.datetime.now(), 'Total network distance: ' + str(total_len))
@@ -431,7 +431,7 @@ def topology_attributes(study_area_dir, graph_file, area):
     # transbase of attributes from stats_basic dic to attributes table:
     basic_stats_list = {'n': 'n_nodes',
                         'm': 'n_edges',
-                        'edge_length_total': 'network_distance',
+                        # 'edge_length_total': 'network_distance',
                         'intersection_count': 'n_intersection',
                         'street_segments_count': 'n_street',
                         'streets_per_node_avg': 'streets_per_node',
