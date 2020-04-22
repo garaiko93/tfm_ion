@@ -48,34 +48,9 @@ print(datetime.datetime.now(), 'Main script begins ...')
 #                   3. Scenario (i.e. 'switzerland_1pm', 'switzerland_1pct', 'switzerland_10pct'
 # '''
 # population_parser_line(scenarios_dir)
-#
-# pop_list = ['switzerland_1pm', 'switzerland_1pct', 'switzerland_10pct']
-# for scenario in pop_list:
-#     area = None
-#     population_parser_line(r'C:\Users\Ion\TFM\data\scenarios',
-#                            r'C:/Users/Ion/TFM/data/study_areas',
-#                            scenario,
-#                            area)
-#
-#
-# area_list = [dI for dI in os.listdir(r'C:/Users/Ion/TFM/data/study_areas') if
-#              os.path.isdir(os.path.join(r'C:/Users/Ion/TFM/data/study_areas', dI))]
-# for area in area_list:
-#     scenario = None
-#     population_parser_line(r'C:/Users/Ion/TFM/data/scenarios',
-#                            r'C:/Users/Ion/TFM/data/study_areas',
-#                            scenario,
-#                            area)
 
 # population_parser_setup(r'C:/Users/Ion/TFM/data/scenarios')
-# population_parser_setup(r'C:/Users/Ion/TFM/data/study_areas')
-
-# for area in area_list:
-#     population_parser_line(r'C:/Users/Ion/TFM/data/study_areas',
-#                            area)
-#     population_parser_line(r'C:/Users/Ion/TFM/data/study_areas/' + str(area) + '/' + str(area) + '_population.xml.gz',
-#                            r'C:/Users/Ion/TFM/data/study_areas/' + str(area) + '/population_db',
-#                            r'C:/Users/Ion/TFM/data/study_areas')
+population_parser_setup(r'C:/Users/Ion/TFM/data/study_areas')
 
 # -------------------------------------------------------------------------------------------------------------
 # CREATE AND ANALYSE EVERY STUDY AREA
@@ -96,9 +71,9 @@ print(datetime.datetime.now(), 'Main script begins ...')
 # args = parser.parse_args()
 # analysis_setup(args.study_areas, args.network_graphs, args.area)
 
-analysis_setup(r"C:/Users/Ion/TFM/data/study_areas",
-               r"C:/Users/Ion/TFM/data/network_graphs",
-               None)
+# analysis_setup(r"C:/Users/Ion/TFM/data/study_areas",
+#                r"C:/Users/Ion/TFM/data/network_graphs",
+#                None)
 # analysis_setup("/cluster/home/gaion/TFM/data/study_areas",
 #                "/cluster/home/gaion/TFM/data/network_graphs",
 #                None)

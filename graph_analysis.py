@@ -71,7 +71,7 @@ def topology_attributes(study_area_dir, graph_file, area):
     # Define way_type for each area:
     area_type_dict = {'bern': 'urban',
                         'bern_large': 'urban',
-                        'chur': 'rural',
+                        'chur': 'mountain',
                         'freiburg': 'rural',
                         'frutigen': 'mountain',
                         'lausanne': 'urban',
@@ -98,6 +98,7 @@ def topology_attributes(study_area_dir, graph_file, area):
                   'area',
                   'population',
                   'trips',
+                  'CarPt_users',
                   'n_intersection',     # stats_basic
                   'n_street',           # stats_basic
                   'streets_per_node',   # stats_basic

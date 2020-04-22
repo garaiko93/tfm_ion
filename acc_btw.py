@@ -169,7 +169,7 @@ def cut_graph(G, shp_path, graphtype, area, study_area_shp):
     return new_G
 
 
-def take_avg(study_area_dir, area, attributes):
+def take_avg(study_area_dir, area, attributes=None):
     attr_df = pd.read_csv(str(study_area_dir) + '/' + 'attribute_table.csv', sep=",", index_col='attributes',
                           dtype=object)
     # take avg of cells (if possible)
@@ -182,7 +182,7 @@ def take_avg(study_area_dir, area, attributes):
                 # value = attr_df.iloc[i][column]
                 # INTEGER ATTRIBUTES
                 if attr_df.index[i] in ['n_nodes', 'n_edges', 'population', 'trips',
-                                        'radius', 'diameter', 'n_intersection', 'n_street']:
+                                        'radius', 'diameter', 'n_intersection', 'n_street', 'CarPt_users']:
                 # if isinstance(value, int):
                     str_val = attr_df.iloc[i][column]
                     int_val = int(float(str_val))
@@ -272,7 +272,7 @@ def take_avg(study_area_dir, area, attributes):
     # attr_df = attr_df.reindex(new_index)
     # attr_avg_df = attr_avg_df.reindex(new_index)
 
-    if attributes:
+    if attributes is not None:
         attr_df = attr_df.reindex(attributes)
         attr_avg_df = attr_avg_df.reindex(attributes)
 

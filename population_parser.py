@@ -7,7 +7,7 @@ import re
 import datetime
 
 # functions from other scripts
-from graph_analysis import take_avg
+from graph_analysis import take_avg, save_attr_df
 
 
 def extract_activity(activity,from_to):
@@ -62,18 +62,15 @@ def population_parser_setup(scenario_area_dir, scenario_area=None):
 def check_pop_file(scenario_area_dir, scenario_area):
     print(datetime.datetime.now(), scenario_area)
     out_path = str(scenario_area_dir) + '/' + str(scenario_area) + '/population_db'
-    swiss_scr = os.path.isfile(
-        str(scenario_area_dir) + '/' + str(scenario_area) + '/switzerland_population.xml.gz')
-    study_area_scr = os.path.isfile(
-        str(scenario_area_dir) + '/' + str(scenario_area) + '/' + str(scenario_area) + '_population.xml.gz')
+    swiss_scr = os.path.isfile(str(scenario_area_dir) + '/' + str(scenario_area) + '/switzerland_population.xml.gz')
+    study_area_scr = os.path.isfile(str(scenario_area_dir) + '/' + str(scenario_area) + '/simulations/' + str(scenario_area) + '_population.xml.gz')
 
     if swiss_scr:
         pop_file = str(scenario_area_dir) + '/' + str(scenario_area) + '/switzerland_population.xml.gz'
         print(datetime.datetime.now(), 'Population file found in scenario folder as: switzerland_population.xml.gz')
         population_parser_line(out_path, pop_file, scenario_area, None)
     elif study_area_scr:
-        pop_file = str(scenario_area_dir) + '/' + str(scenario_area) + '/' + str(
-            scenario_area) + '_population.xml.gz'
+        pop_file = str(scenario_area_dir) + '/' + str(scenario_area) + '/simulations/' + str(scenario_area) + '_population.xml.gz'
         print(datetime.datetime.now(), 'Population file found in scenario folder as: ' + str(scenario_area) + '_population.xml.gz')
         population_parser_line(out_path, pop_file, scenario_area, scenario_area_dir)
     else:
@@ -102,8 +99,9 @@ def population_parser_line(out_path, pop_file, scenario_area=None, attr_table_di
     attr_count = 0
     plans_count = 0
 
-    if os.path.isfile(str(out_path)+"/loc_freight_loading.csv") == False:
+    if os.path.isfile(str(out_path)+"/loc_freight_loading1.csv") == False:
         print(datetime.datetime.now(), 'Parsing population ...')
+        CarPt_users = []
         with gzip.open(pop_file) as f:
             #     reading line by line the 'nodes' file created at the beginning, data for each node fulfilling the conditions are stored for the output
             for line in f:
@@ -176,6 +174,9 @@ def population_parser_line(out_path, pop_file, scenario_area=None, attr_table_di
                             mode = m.group(1).decode('utf-8')
                             dep_time = m.group(2).decode('utf-8')
                             # trav_time = m.group(3).decode('utf-8')
+
+                            if mode in ['car', 'pt']:
+                                CarPt_users.append(person_id)
                     if b"<route " in line:
                         # m = re.search(rb'type="(.+)" start_link="(.+)" end_link="(.+)" trav_time="(.+)" '
                         #               rb'distance="([+-]?\d+(?:\.\d+)?)" >([+-]?\d+(?:\.\d+)?)</route', line)
@@ -282,15 +283,34 @@ def population_parser_line(out_path, pop_file, scenario_area=None, attr_table_di
                     population_attributes = {}
                     population_plans = {}
 
+                    # Remove duplicates
+                    CarPt_users = len(list(set(CarPt_users)))
+
         if attr_table_dir:
             attr_df = pd.read_csv(str(attr_table_dir) + '/attribute_table.csv', sep=",", index_col='attributes',
                                   dtype=object)
             print(datetime.datetime.now(), 'Attributes table loaded successfully.')
+
+            # Update attribute table with new added attributes or study areas
+            pop_attributes = ['population', 'trips', 'CarPt_users']
+            for attribute in pop_attributes:
+                if attribute not in attr_df.index:
+                    s = pd.Series(name=attribute)
+                    attr_df = attr_df.append(s)
+                    print(datetime.datetime.now(), 'Added ' + str(attribute) + ' as row to attr_df')
+
+            # Save attributes in df
             attr_df.at['population', scenario_area] = attr_count
             attr_df.at['trips', scenario_area] = plans_count
-            take_avg(attr_df, attr_table_dir, attributes=None)
+            attr_df.at['CarPt_users', scenario_area] = CarPt_users
+
+            # Save df
+            save_attr_df(attr_df, attr_table_dir, scenario_area)
+            take_avg(attr_table_dir, scenario_area)
+
             # attr_df.to_csv(str(attr_table_dir) + "/attribute_table.csv", sep=",", index=True, index_label=['attributes'])
         print(datetime.datetime.now(), str('Population_attributes contains attributes of ') + str(attr_count) + str(' persons.'))
+        print(datetime.datetime.now(), str('People who use car/pt at least once: ') + str(CarPt_users) + str(' persons.'))
         print(datetime.datetime.now(), str('Population_plans contains information of ') + str(plans_count) + str(' trips.'))
 
         # create df with location of all facilities with groupby.list person_id

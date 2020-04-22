@@ -4,16 +4,17 @@ mpl.use('agg')
 # mpl.use('TkAgg')
 import numpy as np
 import pandas as pd
-import argparse
+# import argparse
 from scipy.optimize import curve_fit
 import ntpath
 import os
 import datetime
-import math
-import cmath
+
+from plot_attributes import save_plot
 
 # column='0.4'
-def tend_curve(df, column):
+# def tend_curve(df, column):
+def tend_curve(x, y, column=None):
     def exponential(x, a, k, b):
         return a * np.exp(-k * x) + b
     def inv_exponential(y, a, k, b):
@@ -46,15 +47,6 @@ def tend_curve(df, column):
             avg_error = 10000
         return avg_error
 
-    # curve fit
-    y = df[column]
-    nan_elems = y.isnull()
-    y = y[~nan_elems]
-    for ix, wt in y.iteritems():
-        if wt > 800 or wt < 100:
-            y = y.drop(labels=[ix])
-    x = y.index
-
     # Select which (exponential/quadratic) curves have less error on the fitting
     exp_error = error_f(x, y, exponential)
     quad_error = error_f(x, y, quadratic)
@@ -78,10 +70,13 @@ def tend_curve(df, column):
     a, k, b = opt
 
     # Get threshold value of the fitted curve for a threshold of 300 wt
-    opt_fs = int(np.rint(inv_func(300, a, k, b)))
+    if column is not None:
+        opt_fs = int(np.rint(inv_func(300, a, k, b)))
+    else:
+        opt_fs = None
 
     # define limits to plot
-    if check_q:
+    if check_q and opt_fs is not None:
         # this way, only one side of the parabola is plotted, until the derivate is max/min
         dx = -k / (2 * a)
         if dx > min(x) and dx < max(x):
@@ -95,8 +90,8 @@ def tend_curve(df, column):
     else:
         x2 = np.linspace(min(x), max(x), 1000)
         y2 = model_func(x2, a, k, b)
-
-    print('for: ' + str(column) + ' fleet size of: ' + str(opt_fs))
+    if column is not None:
+        print('for: ' + str(column) + ' fleet size of: ' + str(opt_fs))
 
     return x2, y2, opt_fs
 
@@ -156,13 +151,21 @@ def plot_fc(area_path):
     num = 0
     for column in df:
         # fit curve out of simulation results
-        x = df.index
         y = df[column]
-        xx, yy, opt_fs = tend_curve(df, column)
+        nan_elems = y.isnull()
+        y = y[~nan_elems]
+        for ix, wt in y.iteritems():
+            if wt > 800 or wt < 100:
+                y = y.drop(labels=[ix])
+        x = y.index
+
+        # xx, yy, opt_fs = tend_curve(df, column)
+        xx, yy, opt_fs = tend_curve(x, y, column)
 
         # Save opt fs value for 300s waiting time in dataframe
-        df_update(study_area_path, column, opt_fs, area)
-
+        # df_update(study_area_path, column, opt_fs, area)
+        x = df.index
+        y = df[column]
         plt.scatter(x, y, color=palette(num), label=column)
         plt.plot(xx, yy, color=palette(num), linestyle='dashed')
         num += 1
@@ -211,16 +214,82 @@ def plot_fc(area_path):
 
 # plot_fc(area_path)
 
-study_area_dir = 'C:/Users/Ion/TFM/data/study_areas'
-
-study_area_list = list(os.walk(study_area_dir))[0][1]
+# study_area_dir = 'C:/Users/Ion/TFM/data/study_areas'
+#
+# study_area_list = list(os.walk(study_area_dir))[0][1]
 # study_area_list = ['bern']
 
-for area in study_area_list:
-    if area == 'test_area':
-        continue
-    area_path = str(study_area_dir) + '/' + str(area)
-    plot_fc(area_path)
+# for area in study_area_list:
+#     if area == 'test_area':
+#         continue
+#     area_path = str(study_area_dir) + '/' + str(area)
+#     plot_fc(area_path)
+
+
+# -----------------------------------------------------------------------------
+# PLOT OPT_FS
+# -----------------------------------------------------------------------------
+def plot_opt_fs(df):
+    print(datetime.datetime.now(), 'Creating plot ...')
+    # style
+    plt.figure(figsize=(15, 8))
+    plt.rcParams.update({'font.size': 14})
+    plt.style.use('seaborn-darkgrid')
+
+    # create a color palette
+    NUM_COLORS = len(df)
+    # palette = plt.get_cmap('tab20')
+    # palette = plt.get_cmap('terrain')
+    palette = plt.get_cmap('gist_rainbow')
+    # palette = plt.get_cmap('tab10')
+
+    # multiple line plot
+    num = 0
+    for ix in df.index:
+        # fit curve out of simulation results
+        x = [20, 40, 60, 80, 100]
+        y = list(df.loc[ix])
+        xx, yy, opt_fs = tend_curve(x, y)
+
+        # plt.scatter(x, y, color=palette(num), label=ix)
+        # plt.plot(xx, yy, color=palette(num), linestyle='dashed')
+        plt.scatter(x, y, color=palette(1. * num / NUM_COLORS), label=ix)
+        plt.plot(xx, yy, color=palette(1. * num / NUM_COLORS), linestyle='dashed')
+        num += 1
+
+    # Add legend
+    plt.legend(loc='best', ncol=1, prop={'size': 12}, frameon=True, title='Study Area')
+
+    # Define axis
+    ax = plt.axes()
+    ax.tick_params(labelright=True)
+    # left, right = plt.xlim()
+    # bottom, top = plt.ylim()
+    # ax.set_ylim(0, 6000)
+    # ax.set_xlim(left, right)
+
+    # Add titles
+    # plt.title('AV simulation results for: ' + str(area) + ' (10pct swiss census)', fontsize=16, fontweight=0,
+    #           color='orange')
+    plt.xlabel("Car / PT users who switch to AV (%)", fontsize=16)
+    plt.ylabel("Optimal AVs Fleet Size for 300 sec Waiting Time", fontsize=16)
+
+    save_plot(plt, str(data_path) + '/plots/sim_plots/opt_fs_plot/', 'opt_fs_plot')
+    # plt.savefig(str(data_path) + '/plots/sim_plots/opt_fs_plot/opt_fs_plot.png')
+
+print('plot starts')
+study_area_dir = 'C:/Users/Ion/TFM/data/study_areas'
+data_path = ntpath.split(study_area_dir)[0]
+df = pd.read_csv(str(study_area_dir) + '/' + 'sim_threshold.csv', sep=",", index_col='area')
+df = df.sort_values(by=['1.0'], ascending=False)
+dfs = [df, df[df['1.0'] > 3000], df[df['1.0'] <= 3000]]
+# dfs = [df]
+for df in dfs:
+    plot_opt_fs(df)
+
+
+
+
 
 
 
