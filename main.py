@@ -8,6 +8,7 @@ import argparse
 # from network_graph import parse_network
 from graph_analysis import filter_graph, analysis_setup
 from population_parser import population_parser_setup
+from plot_attributes import plot_sim_results, plot_fs_avs_setup, plot_fs_attr_setup, correlation_matrix
 
 print(datetime.datetime.now(), 'Main script begins ...')
 
@@ -50,7 +51,7 @@ print(datetime.datetime.now(), 'Main script begins ...')
 # population_parser_line(scenarios_dir)
 
 # population_parser_setup(r'C:/Users/Ion/TFM/data/scenarios')
-population_parser_setup(r'C:/Users/Ion/TFM/data/study_areas')
+# population_parser_setup(r'C:/Users/Ion/TFM/data/study_areas')
 
 # -------------------------------------------------------------------------------------------------------------
 # CREATE AND ANALYSE EVERY STUDY AREA
@@ -89,6 +90,35 @@ population_parser_setup(r'C:/Users/Ion/TFM/data/study_areas')
 # parser.add_argument('--network-graphs', dest="network_graphs", help="path to network_graphs")
 # args = parser.parse_args()
 # filter_graph(args.study_areas, args.network_graphs)
+
+
+
+# -------------------------------------------------------------------------------------------------------------
+#  PLOTS
+# -------------------------------------------------------------------------------------------------------------
+# Once all simulations have been computed and results stored, this can be run:
+
+# This creates plot for each area (wt vs fs) and opt fs csv (fs, and fs_N)
+# plot_sim_results(study_area_dir='C:/Users/Ion/TFM/data/study_areas',
+#                  plot_path='C:/Users/Ion/TFM/data/plots/sim_plots/wt_vs_fs/two_points',
+#                  fit_func='exp')
+
+# This creates for a defined fs or fs_N csv, the corresponding plot fs vs avshare value, with a regression (linear, exp)
+plot_fs_avs_setup(study_area_dir='C:/Users/Ion/TFM/data/study_areas',
+                  plot_path='C:/Users/Ion/TFM/data/plots/sim_plots',
+                  regression='linear', # ['linear' (saves a b as attributes), 'exp', 'power', 'quadratic', 'best']
+                  fit='power')            # ['exp', 'power', 'best', 'two_points'] any already computed fit foldername of wt/fs
+
+
+# plot predefined attributes:
+# plot_fs_attr_setup(study_area_dir='C:/Users/Ion/TFM/data/study_areas',
+#                    plot_path='C:/Users/Ion/TFM/data/plots/regression',
+#                    attr_list=None)
+
+
+
+# correlation_matrix('C:/Users/Ion/TFM/data/study_areas')
+
 
 # -------------------------------------------------------------------------------------------------------------
 print(datetime.datetime.now(), 'Main script closing ...')
