@@ -70,7 +70,7 @@ def create_graph(G,edges_list,out_path,filename,nodes_dict):
     return G, G_isolated, isolated, largest
 
 # create shapefile with all nodes/edges excluded from the final graph (only for visual purpose)
-def sw_nodes(way_id):
+def sw_nodes(way_id, nodes_dict, ways_dict):
     coord_list = []
     start_node_id = ways_dict[str(way_id)][0]
     end_node_id = ways_dict[str(way_id)][1]
@@ -79,12 +79,14 @@ def sw_nodes(way_id):
     line = geo.LineString(coord_list)
     return line
 
-def create_shp(edges, file_name):
+def create_shp(edges, file_name, ch_ways_df, out_path, nodes_dict, ways_dict):
     train = ch_ways_df[["start_node_id", "end_node_id", "time", "way_id", "modes"]]
     edges_df = pd.DataFrame.from_records(list(edges), columns=["start_node_id", "end_node_id"])
     intersected_df = pd.merge(edges_df, train, how='inner')
 
-    intersected_df['geometry'] = intersected_df.apply(lambda row: sw_nodes(row['way_id']), axis=1)
+    intersected_df['geometry'] = intersected_df.apply(lambda row: sw_nodes(row['way_id'],
+                                                                           nodes_dict,
+                                                                           ways_dict), axis=1)
     intersected_gdf = gpd.GeoDataFrame(intersected_df)
     intersected_gdf.to_file(str(out_path) + "/" + str(file_name) + ".shp")
     print('Shapefile exported as ' + str(file_name))
@@ -361,11 +363,11 @@ def parse_network(raw_file, out_path):
                                                                  'ch_DiGraph_bytime', nodes_dict)
     # LARGEST ISLAND OF GRAPH
         edges = G.edges(list(largest))
-        create_shp(edges, 'ch_MultiDiGraph_bytime_largest')
+        create_shp(edges, 'ch_MultiDiGraph_bytime_largest', ch_ways_df, out_path)
         # ISOLATED GRAPH
         if len(list(isolated)) > 0:
             iso_edges = G_isolated.edges(list(isolated))
-            create_shp(iso_edges, 'isolated_graph')
+            create_shp(iso_edges, 'isolated_graph', ch_ways_df, out_path, nodes_dict, ways_dict)
             # export GRAPH to file
             nx.write_gpickle(G_isolated, str(out_path) + "/isolated_graph.gpickle")
     else:

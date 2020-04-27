@@ -193,7 +193,7 @@ def take_avg(study_area_dir, area, attributes=None):
                 elif attr_df.index[i] in ['network_distance', 'area', 'avg_degree', 'avg_edge_density',
                                           'avg_shortest_path_duration', 'streets_per_node', 'node_d_km',
                                           'intersection_d_km', 'edge_d_km', 'street_d_km', 'circuity_avg',
-                                          'avg_link_time', 'efficiency']:
+                                          'avg_link_time', 'efficiency', 'population_density', 'population_gini']:
                 # elif isinstance(value,float):
                     str_val = attr_df.iloc[i][column]
                     flo_val = float(str_val)
@@ -684,6 +684,19 @@ def eccentricity(G, v=None, sp=None):
     else:
         return e
 
+
+def gini(array):
+    """Calculate the Gini coefficient of a numpy array."""
+    # based on bottom eq: http://www.statsdirect.com/help/content/image/stat0206_wmf.gif
+    # from: http://www.statsdirect.com/help/default.htm#nonparametric_methods/gini.htm
+    array = array.flatten() #all values are treated equally, arrays must be 1d
+    if np.amin(array) < 0:
+        array -= np.amin(array) #values cannot be negative
+    array += 0.0000001 #values cannot be 0
+    array = np.sort(array) #values must be sorted
+    index = np.arange(1,array.shape[0]+1) #index per array element
+    n = array.shape[0]#number of array elements
+    return ((np.sum((2 * index - n  - 1) * array)) / (n * np.sum(array))) #Gini coefficient
 
 
 # btw_acc(new_G, chG, study_area_dir, area, nodes_dict, area_series, grid_size=500)

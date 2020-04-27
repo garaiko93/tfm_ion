@@ -8,7 +8,9 @@ from progressbar import Percentage, ProgressBar, Bar, ETA
 import datetime
 
 # functions from other scripts
-from acc_btw import dict_data, btw_acc, straightness, cut_graph, take_avg, save_attr_df, cutting_graph
+from acc_btw import dict_data, btw_acc, straightness, cut_graph, take_avg, save_attr_df, cutting_graph, gini
+# from acc_btw import *
+from population_distribution import create_distrib
 
 def analysis_setup(study_area_dir, graph_file, area_def):
     print(datetime.datetime.now(), 'Area analysis starts.')
@@ -97,6 +99,8 @@ def topology_attributes(study_area_dir, graph_file, area):
                   'avg_link_time',
                   'area',
                   'population',
+                  'population_density',
+                  'population_gini',
                   'trips',
                   'CarPt_users',
                   'n_intersection',     # stats_basic
@@ -162,12 +166,22 @@ def topology_attributes(study_area_dir, graph_file, area):
     # ----------------------------------------------------------------------
     # 0.Basic information of study area
     if pd.isnull(area_series['area']):
-    # if pd.isnull(attr_df.loc['area', area]):
+        # if pd.isnull(attr_df.loc['area', area]):
         area_val = study_area_shp.area
         area_series = dict_data(area_val, study_area_dir, 'area', area, area_series)
     if pd.isnull(area_series['area_type']):
-    # if pd.isnull(attr_df.loc['area_type', area]):
+        # if pd.isnull(attr_df.loc['area_type', area]):
         area_series = dict_data(area_type_dict[area], study_area_dir, 'area_type', area, area_series)
+
+    if pd.isnull(area_series['population_gini']):
+        m_df = create_distrib(shp_path, 300, False)
+        pop_distr = m_df.as_matrix(columns=['pop']).flatten()
+        pop_dens = sum(pop_distr) / len(pop_distr)
+        area_series = dict_data(pop_dens, study_area_dir, 'population_density', area, area_series)
+
+        gini_c = gini(pop_distr)
+        area_series = dict_data(gini_c, study_area_dir, 'population_gini', area, area_series)
+
 
     # Average duartion of link
     # if pd.isnull(area_series['avg_link_time']):

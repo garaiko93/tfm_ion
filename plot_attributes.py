@@ -22,12 +22,16 @@ from numpy.linalg import lstsq
 from vioboxPlot import violinboxplot
 
 def save_plot(fig, path, fig_name):
-    i = 0
-    fig_path = str(path) + '/' + str(fig_name) + str(i) + '.png'
-    while os.path.isfile(fig_path):
-        i += 1
+    fig_path = str(path) + '/' + str(fig_name) + '.png'
+    if not os.path.isfile(fig_path):
+        fig.savefig(fig_path)
+    else:
+        i = 1
         fig_path = str(path) + '/' + str(fig_name) + str(i) + '.png'
-    fig.savefig(fig_path)
+        while os.path.isfile(fig_path):
+            i += 1
+            fig_path = str(path) + '/' + str(fig_name) + str(i) + '.png'
+        fig.savefig(fig_path)
     print('Plot saved: ' + str(fig_name))
 
 
@@ -92,7 +96,9 @@ def data_setup(study_areas, attr, plot_title, list_areas):
     #               title=str(plot_title) + " - " + str(list_areas) + " Study Areas", logPercentile=logPercentile)
 
     violinboxplot(data_to_plot, labels=x_axis, ax=ax, showModes=True, showCounts=True, outliers=outliers, logPercentile=logPercentile)
-    plt.savefig(r'C:/Users/Ion/TFM/data/plots/attribute_plots/' + str(list_areas) + '/' + str(attr) + '.png')
+
+    save_plot(plt, 'C:/Users/Ion/TFM/data/plots/attribute_plots/' + str(list_areas), attr)
+    # plt.savefig('C:/Users/Ion/TFM/data/plots/attribute_plots/' + str(list_areas) + '/' + str(attr) + '.png')
     # plt.savefig(r'C:/Users/Ion/TFM/' + str(attr_name) + '.png')
     print('Plot saved: ' + str(list_areas) + ' ' + str(attr))
 
@@ -213,20 +219,34 @@ def facet_plot(df):
 # -----------------------------------------------------------------------------
 # CORRELATION MATRIX
 # -----------------------------------------------------------------------------
-def correlation_matrix(study_area_dir):
+def correlation_matrix(study_area_dir, sim_path, fit):
+    # Load dfs: [a,b], [sim_results], [attrbiutes]
+    df_lr = pd.read_csv(str(sim_path) + '/' + 'linear_regression.csv', sep=",", index_col='area')
+    df_sim = pd.read_csv(str(sim_path) + '/' + 'sim_opt_fs_norm.csv', sep=",", index_col='area')
     df = pd.read_csv(str(study_area_dir) + '/' + 'attribute_table_AVG_T.csv', sep=",", index_col='study_area')
     df.drop(['area_type'], axis=1, inplace=True)
 
-    plt.figure(figsize=(28, 16))
-    plt.rcParams.update({'font.size': 10})
+    full_df = pd.concat([df, df_sim, df_lr], axis=1, sort=False)
+    full_df = full_df.sort_values(by=['network_distance'], ascending=False)
 
-    corrMatrix = df.corr()
-    sb.heatmap(corrMatrix, annot=True)
-    plt.gcf().subplots_adjust(bottom=0.15)
-    # plt.show()
+    for method in ['pearson', 'kendall', 'spearman']:
+        for pos in ['abs', 'natural']:
+            plt.figure(figsize=(34, 22))
+            plt.rcParams.update({'font.size': 12})
 
-    save_plot(plt, 'C:/Users/Ion/TFM/data/plots/attribute_plots/correlation_matrix', 'correlation_matrix')
+            if pos == 'abs':
+                corrMatrix = full_df.corr(method=method).abs().round(decimals=2)
+            else:
+                corrMatrix = full_df.corr(method=method).round(decimals=2)
 
+            mask = np.zeros(corrMatrix.shape, dtype=bool)
+            mask[np.triu_indices(len(mask))] = True
+
+            sb.heatmap(corrMatrix, annot=True, mask=mask)
+            plt.gcf().subplots_adjust(bottom=0.15)
+            # plt.show()
+
+            save_plot(plt, 'C:/Users/Ion/TFM/data/plots/attribute_plots/correlation_matrix/' + str(fit), 'correlation_matrix_' + str(method) + '_' + str(pos))
 
 
 # -----------------------------------------------------------------------------
@@ -320,9 +340,10 @@ def tend_curve(x, y, func='exp', column=None):
         x2, y2 = plot_curve(x, quadratic, a, k, b, opt_fs, True)
 
     elif func == 'power':
-        opt, pcov = curve_fit(power, x, y, p0=(1., 1.e-5, 1.), maxfev=20000)
+        opt, pcov = curve_fit(power, x, y, maxfev=20000, bounds=([-np.inf, 0, -np.inf],
+                                                                 [np.inf, np.inf, np.inf]))
         a, k, b = opt
-
+        print(opt)
         x2, y2 = plot_curve(x, power, a, k, b, False)
         opt_fs = int(np.rint(inv_power(300, a, k, b)))
 
@@ -408,7 +429,7 @@ def df_update(threshold_path, av_share, wt, area):
         df = pd.DataFrame(data=None)
 
     if len(wt) == 1:
-        df = save_value(df, area, av_share, wt)
+        df = save_value(df, area, av_share, wt[0])
     else:
         for i in range(len(wt)):
             df = save_value(df, area, av_share[i], wt[i])
@@ -417,7 +438,7 @@ def df_update(threshold_path, av_share, wt, area):
     df.to_csv(threshold_path, sep=",", index=True, index_label='area')
 
 
-def plot_fc(area_path, plot_path, threshold_path, fit_func='exp'):
+def plot_fc(area_path, plot_path, threshold_path, area, fit_func='exp'):
     print(datetime.datetime.now(), 'Creating plot, fitting curve with output waiting time average values ...')
     area = ntpath.split(area_path)[1]
     study_area_path = ntpath.split(area_path)[0]
@@ -443,10 +464,17 @@ def plot_fc(area_path, plot_path, threshold_path, fit_func='exp'):
         y = df[column]
         nan_elems = y.isnull()
         y = y[~nan_elems]
-        for ix, wt in y.iteritems():
-            if wt > 600 or wt < 100:
-                y = y.drop(labels=[ix])
-        x = y.index
+
+        if any(400 < flag < 600 for (flag) in y):
+            for ix, wt in y.iteritems():
+                if wt > 600 or wt < 100:
+                    y = y.drop(labels=[ix])
+            x = y.index
+        else:
+            for ix, wt in y.iteritems():
+                if wt > 700 or wt < 100:
+                    y = y.drop(labels=[ix])
+            x = y.index
 
         # xx, yy, opt_fs = tend_curve(df, column)
         xx, yy, opt_fs = tend_curve(x, y, fit_func, column)
@@ -485,7 +513,8 @@ def plot_fc(area_path, plot_path, threshold_path, fit_func='exp'):
 
     # plot_path = str(data_path) + '/plots/sim_plots/try'
     # plt.savefig(str(plot_path) + '/' + str(area) + '.png')
-    plt.savefig(plot_path)
+    # plt.savefig(plot_path)
+    save_plot(plt, plot_path, area)
 
 def plot_sim_results(study_area_dir, plot_path, fit_func):
     study_area_list = list(os.walk(study_area_dir))[0][1]
@@ -496,8 +525,9 @@ def plot_sim_results(study_area_dir, plot_path, fit_func):
             continue
         area_path = str(study_area_dir) + '/' + str(area)
         plot_fc(area_path,
-                str(plot_path) + '/' + str(area) + '.png',
+                plot_path,
                 str(plot_path) + '/' + 'sim_opt_fs.csv',
+                area,
                 fit_func=fit_func)  # fit_func = ['exp', 'quadratic', 'two_points', 'power' (a^(bx+c)), 'best' (better[exp,quadratic,power]) ]
 
     # Normalize output opt fs values and create a new csv
@@ -586,7 +616,9 @@ def plot_opt_fs(df, fig_name, ylabel, norm, study_area_dir, plot_path, regressio
     plt.ylabel(ylabel, fontsize=16)
 
     save_plot(plt, str(plot_path) + '/fs_avshare/' + str(norm), str(fig_name) + '_' + str(fit) + 'fit')
-    plt.savefig(str(plot_path) + '/wt_fs/' + str(fit) + '/' + str(fig_name) + '.png')
+    save_plot(plt, str(plot_path) + '/wt_fs/' + str(fit), str(fig_name))
+    # plt.savefig(str(plot_path) + '/fs_avshare/' + str(norm) + '/' + str(fig_name) + '_' + str(fit) + 'fit.png')
+    # plt.savefig(str(plot_path) + '/wt_fs/' + str(fit) + '/' + str(fig_name) + '.png')
 
 def plot_fs_avs_setup(study_area_dir, plot_path, regression, fit):
     # study_area_dir = 'C:/Users/Ion/TFM/data/study_areas'
@@ -680,7 +712,6 @@ def plot_fs_attr_setup(study_area_dir, plot_path, attr_list):
 
 
     # merge both df
-    # full_df = pd.concat([sim_df, attr_df], axis=1)
     full_df = pd.concat([sim_df_N, attr_df], axis=1, sort=False)
     full_df = full_df.sort_values(by=['network_distance'], ascending=False)
 
@@ -700,15 +731,22 @@ def plot_fs_attr_setup(study_area_dir, plot_path, attr_list):
 
 
 # This creates plot for each area (wt vs fs) and opt fs csv (fs, and fs_N)
-# plot_sim_results(study_area_dir='C:/Users/Ion/TFM/data/study_areas',
-#                  plot_path='C:/Users/Ion/TFM/data/plots/sim_plots/wt_fs/two_points',
-#                  fit_func='exp')
+fit_func = 'two_points'     # ['exp', 'power', 'best', 'two_points']
 
-# This creates for a defined fs or fs_N csv, the corresponding plot fs vs avshare value, with a regression (linear, exp)
-plot_fs_avs_setup(study_area_dir='C:/Users/Ion/TFM/data/study_areas',
-                  plot_path='C:/Users/Ion/TFM/data/plots/sim_plots',
-                  regression='linear', # ['linear' (saves a b as attributes), 'exp', 'power', 'quadratic', 'best']
-                  fit='power')            # ['exp', 'power', 'best', 'two_points'] any already computed fit foldername of wt/fs
+# plot_sim_results(study_area_dir='C:/Users/Ion/TFM/data/study_areas',
+#                  plot_path='C:/Users/Ion/TFM/data/plots/sim_plots/wt_fs/' + str(fit_func),
+#                  fit_func=fit_func)
+# #
+# # # This creates for a defined fs or fs_N csv, the corresponding plot fs vs avshare value, with a regression (linear, exp)
+# plot_fs_avs_setup(study_area_dir='C:/Users/Ion/TFM/data/study_areas',
+#                   plot_path='C:/Users/Ion/TFM/data/plots/sim_plots',
+#                   regression='linear',       # ['linear' (saves a b as attributes), 'exp', 'power', 'quadratic', 'best']
+#                   fit=fit_func)              # ['exp', 'power', 'best', 'two_points'] any already computed fit foldername of wt/fs
+
+
+correlation_matrix(study_area_dir='C:/Users/Ion/TFM/data/study_areas',
+                   sim_path='C:/Users/Ion/TFM/data/plots/sim_plots/wt_fs/' + str(fit_func),
+                   fit=fit_func)
 
 
 
@@ -727,7 +765,7 @@ plot_fs_avs_setup(study_area_dir='C:/Users/Ion/TFM/data/study_areas',
 
 
 
-# correlation_matrix('C:/Users/Ion/TFM/data/study_areas')
+
 
 
 

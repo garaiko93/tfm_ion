@@ -72,42 +72,29 @@ print(datetime.datetime.now(), 'Main script begins ...')
 # args = parser.parse_args()
 # analysis_setup(args.study_areas, args.network_graphs, args.area)
 
-# analysis_setup(r"C:/Users/Ion/TFM/data/study_areas",
-#                r"C:/Users/Ion/TFM/data/network_graphs",
-#                None)
+analysis_setup('C:/Users/Ion/TFM/data/study_areas',
+               'C:/Users/Ion/TFM/data/network_graphs',
+               None)
 # analysis_setup("/cluster/home/gaion/TFM/data/study_areas",
 #                "/cluster/home/gaion/TFM/data/network_graphs",
 #                None)
-
-# filter_graph(r"C:/Users/Ion/TFM/data/study_areas",
-#              r"C:/Users/Ion/TFM/data/network_graphs",
-#              None)
-# filter_graph("/cluster/home/gaion/TFM/study_areas",
-#              "/cluster/home/gaion/TFM/network_graphs",
-#              'zurich_kreis')
-# parser = argparse.ArgumentParser(description='Cut and analyse a graph for a certain input area.')
-# parser.add_argument('--study-areas', dest="study_areas", help='path to study areas')
-# parser.add_argument('--network-graphs', dest="network_graphs", help="path to network_graphs")
-# args = parser.parse_args()
-# filter_graph(args.study_areas, args.network_graphs)
-
 
 
 # -------------------------------------------------------------------------------------------------------------
 #  PLOTS
 # -------------------------------------------------------------------------------------------------------------
 # Once all simulations have been computed and results stored, this can be run:
-
+fit_func='two_points'
 # This creates plot for each area (wt vs fs) and opt fs csv (fs, and fs_N)
 # plot_sim_results(study_area_dir='C:/Users/Ion/TFM/data/study_areas',
 #                  plot_path='C:/Users/Ion/TFM/data/plots/sim_plots/wt_vs_fs/two_points',
-#                  fit_func='exp')
+#                  fit_func=fit_func)
 
 # This creates for a defined fs or fs_N csv, the corresponding plot fs vs avshare value, with a regression (linear, exp)
-plot_fs_avs_setup(study_area_dir='C:/Users/Ion/TFM/data/study_areas',
-                  plot_path='C:/Users/Ion/TFM/data/plots/sim_plots',
-                  regression='linear', # ['linear' (saves a b as attributes), 'exp', 'power', 'quadratic', 'best']
-                  fit='power')            # ['exp', 'power', 'best', 'two_points'] any already computed fit foldername of wt/fs
+# plot_fs_avs_setup(study_area_dir='C:/Users/Ion/TFM/data/study_areas',
+#                   plot_path='C:/Users/Ion/TFM/data/plots/sim_plots',
+#                   regression='linear', # ['linear' (saves a b as attributes), 'exp', 'power', 'quadratic', 'best']
+#                   fit=fit_func)            # ['exp', 'power', 'best', 'two_points'] any already computed fit foldername of wt/fs
 
 
 # plot predefined attributes:
@@ -116,8 +103,9 @@ plot_fs_avs_setup(study_area_dir='C:/Users/Ion/TFM/data/study_areas',
 #                    attr_list=None)
 
 
-
-# correlation_matrix('C:/Users/Ion/TFM/data/study_areas')
+correlation_matrix(study_area_dir='C:/Users/Ion/TFM/data/study_areas',
+                   sim_path='C:/Users/Ion/TFM/data/plots/sim_plots/wt_fs/' + str(fit_func),
+                   fit=fit_func)
 
 
 # -------------------------------------------------------------------------------------------------------------
