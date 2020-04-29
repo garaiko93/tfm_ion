@@ -1,7 +1,6 @@
 import matplotlib as mpl
-mpl.use('agg') #only save
+# mpl.use('agg') #only save
 # mpl.use('TkAgg') #see plot
-import matplotlib.pyplot as plt
 import pickle
 import pandas as pd
 import tkinter
@@ -14,12 +13,15 @@ import datetime
 from scipy.optimize import curve_fit
 from scipy import stats
 import copy
-from numpy import ones,vstack
+from numpy import ones, vstack
 from numpy.linalg import lstsq
 
 
 # functions from other scripts
 from vioboxPlot import violinboxplot
+
+# Turn interactive plotting off
+plt.ioff()
 
 def save_plot(fig, path, fig_name):
     fig_path = str(path) + '/' + str(fig_name) + '.png'
@@ -159,7 +161,7 @@ def grid_plot(df, fig_name):
     # Map the plots to the locations
     # grid = grid.map_upper(plt.scatter)
     # grid = grid.map_upper(plt.plot, color='none')
-    grid = grid.map_upper(plt.plot, marker = "o", ls="")
+    grid = grid.map_upper(plt.plot, marker="o", ls="")
     grid = grid.map_upper(corr, corre=True)
     grid = grid.map_lower(sb.kdeplot)
     grid = grid.map_diag(plt.hist, bins=5, edgecolor='k')
@@ -191,29 +193,18 @@ def facet_plot(df):
     # plt.show()
     return plt
 
+def setup_gridplot(study_area_dir, plot_path, df_plots):
+    # Pair wise plot
+    # study_area_dir = 'C:/Users/Ion/TFM/data/study_areas'
+    # df = pd.read_csv(str(study_area_dir) + '/attribute_table_AVG_T.csv', sep=",")
+    df = pd.read_csv(str(study_area_dir) + '/full_df_two_points_norm.csv', sep=",")
 
-# Pair wise plot
-# study_area_dir = 'C:/Users/Ion/TFM/data/study_areas'
-# df = pd.read_csv(str(study_area_dir) + '/' + 'attribute_table_AVG_T.csv', sep=",")
-#
-# # Different facet plots:
-# df_plots = [
-#     [['network_distance', 'efficiency', 'node_straightness', 'eccentricity', 'avg_shortest_path_duration', 'area_type'], 'random'],
-#     [['network_distance', 'node_d_km', 'edge_d_km', 'intersection_d_km', 'street_d_km', 'area_type'], 'densities'],
-#     [['network_distance', 'population', 'trips', 'area', 'circuity_avg', 'area_type'], 'dimensionless'],
-#     [['network_distance', 'avg_degree_connectivity', 'avg_edge_density', 'degree_centrality', 'avg_neighbor_degree', 'area_type'], 'degrees'],
-#     [['network_distance', 'clustering*', 'node_betweenness*', 'edge_betweenness', 'street_d_km', 'area_type'], 'dicts'],
-#     [['network_distance', 'btw_home_trip_production', 'btw_empl_trip_generation', 'btw_acc_trip_generation', 'btw_acc_trip_production', 'area_type'], 'btw_acc']
-#     # [['network_distance', 'node_d_km', 'edge_d_km', 'intersection_d_km', 'street_d_km', 'area_type'], 'try']
-#     # [['network_distance', 'avg_degree_connectivity', 'intersection_d_km', 'avg_neighbor_degree', 'area_type'], 'btw_acc']
-#             ]
-#
-# for df_selection in df_plots:
-#     # fig = facet_plot(df[df_selection[0]])
-#     fig = grid_plot(df[df_selection[0]], df_selection[1])
-# #
-# #     # Save plot
-#     save_plot(fig, 'C:/Users/Ion/TFM/data/plots/attribute_plots/facetPlot', df_selection[1])
+    for df_selection in df_plots:
+        # fig = facet_plot(df[df_selection[0]])
+        fig = grid_plot(df[df_selection[0]], df_selection[1])
+
+        # Save plot
+        save_plot(fig, plot_path, df_selection[1])
 
 
 # -----------------------------------------------------------------------------
@@ -700,16 +691,15 @@ def plot_fs_attr(full_df, attr_list, plot_path):
 
     save_plot(grid, plot_path, 'fsN_attr')
 
-def plot_fs_attr_setup(study_area_dir, plot_path, attr_list):
+def plot_fs_attr_setup(study_area_dir, sim_path, plot_path, attr_list):
     # study_area_dir = 'C:/Users/Ion/TFM/data/study_areas'
     # plot_path = 'C:/Users/Ion/TFM/data/plots/sim_plots/wt_fs/only_exp_l600'
     # data_path = ntpath.split(study_area_dir)[0]
-    sim_df = pd.read_csv(str(study_area_dir) + '/' + 'sim_threshold.csv', sep=",", index_col='area')
+    # sim_df = pd.read_csv(str(sim_path) + '/' + 'sim_opt_fs.csv', sep=",", index_col='area')
+    sim_df_N = pd.read_csv(str(sim_path) + '/' + 'sim_opt_fs_norm.csv', sep=",", index_col='area')
     attr_df = pd.read_csv(str(study_area_dir) + '/' + 'attribute_table_AVG_T.csv', sep=",", index_col='study_area')
-    sim_df_N = pd.read_csv(str(study_area_dir) + '/' + 'sim_threshold.csv', sep=",", index_col='area')
 
     # sim_df100 = sim_df['1.0']
-
 
     # merge both df
     full_df = pd.concat([sim_df_N, attr_df], axis=1, sort=False)
@@ -730,6 +720,11 @@ def plot_fs_attr_setup(study_area_dir, plot_path, attr_list):
             count += 1
 
 
+
+# -----------------------------------------------------------------------------
+# SIMULATION RESULTS PLOTS
+# -----------------------------------------------------------------------------
+
 # This creates plot for each area (wt vs fs) and opt fs csv (fs, and fs_N)
 fit_func = 'two_points'     # ['exp', 'power', 'best', 'two_points']
 
@@ -744,9 +739,31 @@ fit_func = 'two_points'     # ['exp', 'power', 'best', 'two_points']
 #                   fit=fit_func)              # ['exp', 'power', 'best', 'two_points'] any already computed fit foldername of wt/fs
 
 
-correlation_matrix(study_area_dir='C:/Users/Ion/TFM/data/study_areas',
-                   sim_path='C:/Users/Ion/TFM/data/plots/sim_plots/wt_fs/' + str(fit_func),
-                   fit=fit_func)
+# correlation_matrix(study_area_dir='C:/Users/Ion/TFM/data/study_areas',
+#                    sim_path='C:/Users/Ion/TFM/data/plots/sim_plots/wt_fs/' + str(fit_func),
+#                    fit=fit_func)
+
+
+
+
+# -----------------------------------------------------------------------------
+# ATTRIBUTE PLOTS
+# -----------------------------------------------------------------------------
+
+# # Different facet plots:
+df_plots = [
+#     [['network_distance', 'efficiency', 'node_straightness', 'eccentricity', 'avg_shortest_path_duration', 'area_type'], 'random'],
+#     [['network_distance', 'node_d_km', 'edge_d_km', 'intersection_d_km', 'street_d_km', 'area_type'], 'densities'],
+#     [['network_distance', 'population', 'trips', 'area', 'circuity_avg', 'area_type'], 'dimensionless'],
+#     [['network_distance', 'avg_degree_connectivity', 'avg_edge_density', 'degree_centrality', 'avg_neighbor_degree', 'area_type'], 'degrees'],
+#     [['network_distance', 'clustering*', 'node_betweenness*', 'edge_betweenness', 'street_d_km', 'area_type'], 'dicts'],
+#     [['network_distance', 'btw_home_trip_production', 'btw_empl_trip_generation', 'btw_acc_trip_generation', 'btw_acc_trip_production', 'area_type'], 'btw_acc']
+#     # [['network_distance', 'avg_degree_connectivity', 'intersection_d_km', 'avg_neighbor_degree', 'area_type'], 'btw_acc']
+    [['population_gini', 'population','population_density', 'a', 'b', '1.0', 'area_type'], 'pop_gini']
+]
+setup_gridplot(study_area_dir='C:/Users/Ion/TFM/data/study_areas',
+               plot_path='C:/Users/Ion/TFM/data/plots/attribute_plots/facetPlot',
+               df_plots=df_plots)
 
 
 
@@ -757,11 +774,11 @@ correlation_matrix(study_area_dir='C:/Users/Ion/TFM/data/study_areas',
 #              'btw_home_trip_production', 'btw_empl_trip_generation', 'btw_acc_trip_generation', 'btw_acc_trip_production']
 # attr_list = ['avg_degree', 'node_d_km']
 # attr_list = ['node_closeness_time*']
-#
-#
+
 # plot_fs_attr_setup(study_area_dir='C:/Users/Ion/TFM/data/study_areas',
+#                    sim_path='C:/Users/Ion/TFM/data/plots/sim_results/wt_fs/' + str(fit_func),
 #                    plot_path='C:/Users/Ion/TFM/data/plots/regression',
-#                    attr_list=None)
+#                    attr_list=attr_list)
 
 
 
