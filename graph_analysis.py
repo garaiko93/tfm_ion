@@ -62,8 +62,8 @@ def topology_attributes(study_area_dir, graph_file, area):
     shp_path = str(study_area_dir) + '/' + area
 
     # Check if .csv with attributes exists:
-    if os.path.isfile(str(study_area_dir) + '/' + 'attribute_table.csv'):
-        attr_df = pd.read_csv(str(study_area_dir) + '/' + 'attribute_table.csv', sep=",", index_col='attributes', dtype=object)
+    if os.path.isfile(str(study_area_dir) + '/attribute_table.csv'):
+        attr_df = pd.read_csv(str(study_area_dir) + '/attribute_table.csv', sep=",", index_col='attributes', dtype=object)
         print(datetime.datetime.now(), 'Attr_df already exists, file loaded')
     else:
         attr_df = pd.DataFrame(data=None)

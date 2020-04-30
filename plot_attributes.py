@@ -193,11 +193,12 @@ def facet_plot(df):
     # plt.show()
     return plt
 
-def setup_gridplot(study_area_dir, plot_path, df_plots):
+def setup_gridplot(study_area_dir, plot_path, df_plots, df=None):
     # Pair wise plot
     # study_area_dir = 'C:/Users/Ion/TFM/data/study_areas'
     # df = pd.read_csv(str(study_area_dir) + '/attribute_table_AVG_T.csv', sep=",")
-    df = pd.read_csv(str(study_area_dir) + '/full_df_two_points_norm.csv', sep=",")
+    if df is None:
+        df = pd.read_csv(str(study_area_dir) + '/full_df_two_points_norm.csv', sep=",")
 
     for df_selection in df_plots:
         # fig = facet_plot(df[df_selection[0]])
@@ -415,7 +416,7 @@ def df_update(threshold_path, av_share, wt, area):
         return df
 
     if os.path.isfile(threshold_path):
-        df = pd.read_csv(threshold_path, sep=",", index_col='area')
+        df = pd.read_csv(threshold_path, sep=",", index_col='study_area')
     else:
         df = pd.DataFrame(data=None)
 
@@ -426,7 +427,7 @@ def df_update(threshold_path, av_share, wt, area):
             df = save_value(df, area, av_share[i], wt[i])
 
     # Finally save df back
-    df.to_csv(threshold_path, sep=",", index=True, index_label='area')
+    df.to_csv(threshold_path, sep=",", index=True, index_label='study_area')
 
 
 def plot_fc(area_path, plot_path, threshold_path, area, fit_func='exp'):
@@ -681,7 +682,7 @@ def plot_fs_attr(full_df, attr_list, plot_path):
             # if new_row[1] == 'urban':
             #     data.append(new_row)
             data.append(new_row)
-    df = pd.DataFrame(data, columns=['area', 'area_type', 'Attribute', 'attr_value', 'fs_N', 'min', 'max'])
+    df = pd.DataFrame(data, columns=['study_area', 'area_type', 'Attribute', 'attr_value', 'fs_N', 'min', 'max'])
 
     # Plot map
     grid = sb.FacetGrid(df, hue="area_type", col_wrap=3, col="Attribute", height=4, sharex=False)
@@ -720,6 +721,43 @@ def plot_fs_attr_setup(study_area_dir, sim_path, plot_path, attr_list):
             count += 1
 
 
+def regression_plot(study_area_dir, reg_path, sim_path, reg_plots):
+    df_lr = pd.read_csv(str(sim_path) + '/linear_regression.csv', sep=",", index_col='area')
+
+    df_sim_N = pd.read_csv(str(sim_path) + '/sim_opt_fs_norm.csv', sep=",", index_col='area')
+    df_sim = pd.read_csv(str(sim_path) + '/sim_opt_fs.csv', sep=",", index_col='area')
+    df_sim_N.columns = pd.MultiIndex.from_tuples([('norm', c) for c in df_sim_N.columns])
+    df_sim.columns = pd.MultiIndex.from_tuples([('fs', c) for c in df_sim.columns])
+
+    df_reg = pd.read_csv(str(reg_path) + '/regression_ab.csv', sep=",", index_col='study_area')
+
+    df = pd.read_csv(str(study_area_dir) + '/attribute_table_AVG_T.csv', sep=",", index_col='study_area')
+
+    full_df = pd.concat([df, df_sim_N, df_sim, df_lr, df_reg], axis=1, sort=False)
+    full_df = full_df.sort_values(by=['network_distance'], ascending=False)
+
+    df_plots = [['real_a', 'pred_a'],
+                ['real_b', 'pred_b'],
+                ['real_nfs', 'pred_nfs'],
+                ['real_fs', 'pred_fs']]
+
+
+    for i in range(1, len(df_plots) + 1):
+        data = df_plots[i-1]
+        x = list(full_df[data[0]])
+        y = list(full_df[data[1]])
+        area_type = list(full_df['area_type'])
+
+        plt.subplot(2, 2, i)
+        ax = plt.subplot(2, 2, i)
+        ax.scatter(x, y, alpha=0.8, palette="husl", edgecolors='none', s=30, label=area_type)
+        # plt.scatter(x, y, s=area, palette="husl", alpha=0.5)
+
+
+    setup_gridplot(study_area_dir=study_area_dir,
+                   plot_path=reg_path,
+                   df_plots=reg_plots,
+                   df=full_df)
 
 # -----------------------------------------------------------------------------
 # SIMULATION RESULTS PLOTS
@@ -761,11 +799,15 @@ df_plots = [
 #     # [['network_distance', 'avg_degree_connectivity', 'intersection_d_km', 'avg_neighbor_degree', 'area_type'], 'btw_acc']
     [['population_gini', 'population','population_density', 'a', 'b', '1.0', 'area_type'], 'pop_gini']
 ]
-setup_gridplot(study_area_dir='C:/Users/Ion/TFM/data/study_areas',
-               plot_path='C:/Users/Ion/TFM/data/plots/attribute_plots/facetPlot',
-               df_plots=df_plots)
+# setup_gridplot(study_area_dir='C:/Users/Ion/TFM/data/study_areas',
+#                plot_path='C:/Users/Ion/TFM/data/plots/attribute_plots/facetPlot',
+#                df_plots=df_plots)
 
 
+regression_plot(study_area_dir='C:/Users/Ion/TFM/data/study_areas',
+                reg_path='C:/Users/Ion/TFM/data/plots/regression/ols',
+                sim_path='C:/Users/Ion/TFM/data/plots/sim_plots/wt_fs/two_points',
+                reg_plots=[[['real_a', 'pred_a','real_b', 'pred_b', 'real_nfs', 'pred_nfs', 'real_fs', 'pred_fs'], 'reg_results']])
 
 # plot predefined attributes:
 # attr_list = ['node_d_km', 'edge_d_km', 'CarPt_users', 'trips',
