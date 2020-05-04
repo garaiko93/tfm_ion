@@ -173,7 +173,7 @@ def store_results(results, result_path):
     real_fs = np.array(results[2][0])
     real_a = np.array(results[2][1])
     real_b = np.array(results[2][2])
-    real_nfs = np.array(results[2][2])
+    real_nfs = np.array(results[2][3])
 
     # rmse = sqrt(mean_squared_error(real_fs, pred_fs))
     # error = abs(1 - (pred_fs / real_fs))

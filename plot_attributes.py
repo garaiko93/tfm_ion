@@ -15,13 +15,13 @@ from scipy import stats
 import copy
 from numpy import ones, vstack
 from numpy.linalg import lstsq
-
+# from brokenaxes import brokenaxes
 
 # functions from other scripts
 from vioboxPlot import violinboxplot
 
 # Turn interactive plotting off
-plt.ioff()
+# plt.ioff()
 
 def save_plot(fig, path, fig_name):
     fig_path = str(path) + '/' + str(fig_name) + '.png'
@@ -640,7 +640,7 @@ def plot_fs_avs_setup(study_area_dir, plot_path, regression, fit):
 # -----------------------------------------------------------------------------
 # PLOT OPT_FS VS ATTRIBUTES
 # -----------------------------------------------------------------------------
-def qqplot(x, y, min, max,**kwargs):
+def qqplot(x, y, min, max, **kwargs):
     # _, xr = stats.probplot(x, fit=False)
     # _, yr = stats.probplot(y, fit=False)
     # plt.scatter(xr, yr, **kwargs)
@@ -654,7 +654,7 @@ def qqplot(x, y, min, max,**kwargs):
 
     # If correlation is high enough, fit curve
     coef = np.corrcoef(x, y)[0][1]
-    if coef > 0.5 or coef < -0.5:
+    if abs(coef) > 0.5:
         print(coef)
         # z = np.polyfit(x, y, 1)
         # p = np.poly1d(z)
@@ -664,6 +664,30 @@ def qqplot(x, y, min, max,**kwargs):
         xx, yy, opt_fs = tend_curve(x, y, func='exp')
         plt.plot(xx, yy, linestyle='dashed', **kwargs)
 
+
+def qqplot2(x, y, mini, maxi, down, up, **kwargs):
+    low = min(mini.iloc[0], down.iloc[0]) * 0.8
+    high = max(maxi.iloc[0], up.iloc[0]) * 1.2
+
+    # if parameter == 'fleet size':
+    #     baxes = brokenaxes(xlims=((low, 6500), (16000, 22000)), ylims=((low, 6500), (16000, 22000)), hspace=.05)
+    # else:
+    #     baxes = None
+    # left = min.iloc[0] - (0.1 * (max.iloc[0] - min.iloc[0]))
+    # right = max.iloc[0] + (0.1 * (max.iloc[0] - min.iloc[0]))
+    #
+    # top = up.iloc[0] + (0.1 * (up.iloc[0] - down.iloc[0]))
+    # bottom = down.iloc[0] - (0.1 * (up.iloc[0] - down.iloc[0]))
+
+    plt.xlim(low, high)
+    plt.ylim(low, high)
+    # if baxes is not None:
+    #     plt.scatter(x, y, ax=baxes, **kwargs)
+    # else:
+    plt.scatter(x, y, **kwargs)
+
+    xx = np.linspace(low, high, 100)
+    plt.plot(xx, xx, linestyle='dashed', c='r', linewidth=0.6)
 
 def plot_fs_attr(full_df, attr_list, plot_path):
     # Create new df with columns: ['area', 'area_type', 'attr_name', 'attr_value', 'fs']
@@ -721,7 +745,37 @@ def plot_fs_attr_setup(study_area_dir, sim_path, plot_path, attr_list):
             count += 1
 
 
-def regression_plot(study_area_dir, reg_path, sim_path, reg_plots):
+def plot_pred_real(full_df, pred_list, plot_path):
+    # Create new df with columns: ['area', 'area_type', 'attr_name', 'attr_value', 'fs']
+    data = []
+    for real, pred, parameter in pred_list:
+        for area in full_df.index:
+            new_row = (area,
+                       full_df.at[area, 'area_type'],
+                       full_df.at[area, real],
+                       full_df.at[area, pred],
+                       parameter,
+                       min(full_df[real]),
+                       max(full_df[real]),
+                       min(full_df[pred]),
+                       max(full_df[pred]))
+            data.append(new_row)
+    df = pd.DataFrame(data, columns=['study_area', 'area_type', 'real', 'pred', 'parameter', 'min', 'max', 'down', 'up'])
+
+    # Plot map
+    grid = sb.FacetGrid(df, hue="area_type", col_wrap=2, col="parameter", height=4, sharex=False, sharey=False)
+    grid = grid.map(qqplot2, "pred", "real", 'min', 'max', 'down', 'up')
+    # grid = grid.map(corr, corre=True)
+    grid = grid.add_legend(fontsize=14, title='Area type', frameon=True)
+
+    save_plot(grid, plot_path, 'pred_real')
+
+
+def regression_plot(study_area_dir, plot_path, sim_path, reg_plots):
+    # study_area_dir = 'C:/Users/Ion/TFM/data/study_areas'
+    # sim_path = 'C:/Users/Ion/TFM/data/plots/sim_plots/wt_fs/two_points'
+    # plot_path = 'C:/Users/Ion/TFM/data/plots/regression/ols'
+
     df_lr = pd.read_csv(str(sim_path) + '/linear_regression.csv', sep=",", index_col='area')
 
     df_sim_N = pd.read_csv(str(sim_path) + '/sim_opt_fs_norm.csv', sep=",", index_col='area')
@@ -729,35 +783,71 @@ def regression_plot(study_area_dir, reg_path, sim_path, reg_plots):
     df_sim_N.columns = pd.MultiIndex.from_tuples([('norm', c) for c in df_sim_N.columns])
     df_sim.columns = pd.MultiIndex.from_tuples([('fs', c) for c in df_sim.columns])
 
-    df_reg = pd.read_csv(str(reg_path) + '/regression_ab.csv', sep=",", index_col='study_area')
+    df_reg = pd.read_csv(str(plot_path) + '/regression_ab.csv', sep=",", index_col='study_area')
 
     df = pd.read_csv(str(study_area_dir) + '/attribute_table_AVG_T.csv', sep=",", index_col='study_area')
 
     full_df = pd.concat([df, df_sim_N, df_sim, df_lr, df_reg], axis=1, sort=False)
     full_df = full_df.sort_values(by=['network_distance'], ascending=False)
 
-    df_plots = [['real_a', 'pred_a'],
-                ['real_b', 'pred_b'],
-                ['real_nfs', 'pred_nfs'],
-                ['real_fs', 'pred_fs']]
+    # df_plots = [['real_a', 'pred_a']]
+    pred_list = [['real_a', 'pred_a', 'a'],
+                ['real_b', 'pred_b', 'b'],
+                ['real_nfs', 'pred_nfs', 'normalized_fs'],
+                ['real_fs', 'pred_fs', 'fleet size']]
+
+    plot_pred_real(full_df, pred_list, plot_path)
 
 
-    for i in range(1, len(df_plots) + 1):
-        data = df_plots[i-1]
-        x = list(full_df[data[0]])
-        y = list(full_df[data[1]])
-        area_type = list(full_df['area_type'])
 
-        plt.subplot(2, 2, i)
-        ax = plt.subplot(2, 2, i)
-        ax.scatter(x, y, alpha=0.8, palette="husl", edgecolors='none', s=30, label=area_type)
-        # plt.scatter(x, y, s=area, palette="husl", alpha=0.5)
+    # fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2)
+    # fig.suptitle('Sharing x per column, y per row')
+    # ax1.plot(x, y)
+    # ax2.plot(x, y ** 2, 'tab:orange')
+    # ax3.plot(x, -y, 'tab:green')
+    # ax4.plot(x, -y ** 2, 'tab:red')
+    #
+    # for ax in fig.get_axes():
+    #     ax.label_outer()
+    #
+    # for i in range(1, len(df_plots) + 1):
+    #     data = df_plots[i-1]
+    #     x = list(full_df[data[0]])
+    #     y = list(full_df[data[1]])
+    #     area_type = list(full_df['area_type'])
+    #
+    #     x = full_df[data[0]]
+    #     y = full_df[data[1]]
+    #     area_type = full_df['area_type']
+    #
+    #
+    #
+    #     ax1 = full_df.plot.scatter(x='pred_a', y='real_a')
+    #     ax1.set_ylim(0, max(full_df['real_a'])*1.1)
+    #     ax1.set_xlim(0, max(full_df['pred_a'])*1.1)
+    #
+    #     # plt.subplot(2, 2, i)
+    #     # ax = plt.subplot(2, 2, i)
+    #     # ax.scatter(x, y, alpha=0.8, palette="husl", edgecolors='none', s=30, label=area_type)
+    #     # # plt.scatter(x, y, s=area, palette="husl", alpha=0.5)
+    #     plt.plot(x, y, 'o', color='black')
+    #     # Create plot
+    #     fig = plt.figure()
+    #     ax = fig.add_subplot(1, 1, 1)
+    #
+    #     # for data, color, group in zip(data, colors, groups):
+    #     #     x, y = data
+    #     ax.scatter(x, y, alpha=0.8, label=area_type)
+    #
+    #     plt.title('Matplot scatter plot')
+    #     plt.legend(loc=2)
+    #     plt.show()
 
 
-    setup_gridplot(study_area_dir=study_area_dir,
-                   plot_path=reg_path,
-                   df_plots=reg_plots,
-                   df=full_df)
+    # setup_gridplot(study_area_dir=study_area_dir,
+    #                plot_path=reg_path,
+    #                df_plots=reg_plots,
+    #                df=full_df)
 
 # -----------------------------------------------------------------------------
 # SIMULATION RESULTS PLOTS
@@ -805,7 +895,7 @@ df_plots = [
 
 
 regression_plot(study_area_dir='C:/Users/Ion/TFM/data/study_areas',
-                reg_path='C:/Users/Ion/TFM/data/plots/regression/ols',
+                plot_path='C:/Users/Ion/TFM/data/plots/regression/ols',
                 sim_path='C:/Users/Ion/TFM/data/plots/sim_plots/wt_fs/two_points',
                 reg_plots=[[['real_a', 'pred_a','real_b', 'pred_b', 'real_nfs', 'pred_nfs', 'real_fs', 'pred_fs'], 'reg_results']])
 
