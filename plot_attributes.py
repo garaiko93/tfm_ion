@@ -21,7 +21,7 @@ from numpy.linalg import lstsq
 from vioboxPlot import violinboxplot
 
 # Turn interactive plotting off
-# plt.ioff()
+plt.ioff()
 
 def save_plot(fig, path, fig_name):
     fig_path = str(path) + '/' + str(fig_name) + '.png'
@@ -612,6 +612,7 @@ def plot_opt_fs(df, fig_name, ylabel, norm, study_area_dir, plot_path, regressio
     # plt.savefig(str(plot_path) + '/fs_avshare/' + str(norm) + '/' + str(fig_name) + '_' + str(fit) + 'fit.png')
     # plt.savefig(str(plot_path) + '/wt_fs/' + str(fit) + '/' + str(fig_name) + '.png')
 
+
 def plot_fs_avs_setup(study_area_dir, plot_path, regression, fit):
     # study_area_dir = 'C:/Users/Ion/TFM/data/study_areas'
     # data_path = ntpath.split(study_area_dir)[0]
@@ -665,10 +666,14 @@ def qqplot(x, y, min, max, **kwargs):
         plt.plot(xx, yy, linestyle='dashed', **kwargs)
 
 
-def qqplot2(x, y, mini, maxi, down, up, **kwargs):
-    low = min(mini.iloc[0], down.iloc[0]) * 0.8
-    high = max(maxi.iloc[0], up.iloc[0]) * 1.2
-
+def qqplot2(x, y, left, right, down, up, param=None, **kwargs):
+    # print(x, y, left, right, down, up, param)
+    if min(left.iloc[0], down.iloc[0]) < 0:
+        low = min(left.iloc[0], down.iloc[0]) * 1.2
+    else:
+        low = min(left.iloc[0], down.iloc[0]) * 0.8
+    high = max(right.iloc[0], up.iloc[0]) * 1.2
+    # max(parf.iloc[0], up.iloc[0])
     # if parameter == 'fleet size':
     #     baxes = brokenaxes(xlims=((low, 6500), (16000, 22000)), ylims=((low, 6500), (16000, 22000)), hspace=.05)
     # else:
@@ -688,6 +693,7 @@ def qqplot2(x, y, mini, maxi, down, up, **kwargs):
 
     xx = np.linspace(low, high, 100)
     plt.plot(xx, xx, linestyle='dashed', c='r', linewidth=0.6)
+
 
 def plot_fs_attr(full_df, attr_list, plot_path):
     # Create new df with columns: ['area', 'area_type', 'attr_name', 'attr_value', 'fs']
@@ -760,14 +766,23 @@ def plot_pred_real(full_df, pred_list, plot_path):
                        min(full_df[pred]),
                        max(full_df[pred]))
             data.append(new_row)
-    df = pd.DataFrame(data, columns=['study_area', 'area_type', 'real', 'pred', 'parameter', 'min', 'max', 'down', 'up'])
-
+            # print(new_row)
+    df = pd.DataFrame(data, columns=['study_area', 'area_type', 'real', 'pred', 'parameter', 'left', 'right', 'down', 'up'])
+    # print(df.columns)
     # Plot map
     grid = sb.FacetGrid(df, hue="area_type", col_wrap=2, col="parameter", height=4, sharex=False, sharey=False)
-    grid = grid.map(qqplot2, "pred", "real", 'min', 'max', 'down', 'up')
-    # grid = grid.map(corr, corre=True)
+    # grid = grid.map(qqplot2, 'pred', 'real', 'left', 'right', 'down', 'up')
+    grid = grid.map(qqplot2, 'parameter', 'pred', 'real', 'left', 'right', 'down', 'up')
+    # grid = grid.map(corr, "pred", "real")
+    # grid = grid.map(corr, "pred", "real", corre=True)
     grid = grid.add_legend(fontsize=14, title='Area type', frameon=True)
 
+    method_path = ntpath.split(plot_path)[0]
+    try_f = ntpath.split(plot_path)[1]
+
+    grid.savefig(str(method_path) + '/' + str(try_f))
+
+    # save_plot(grid, method_path, try_f)
     save_plot(grid, plot_path, 'pred_real')
 
 
@@ -799,8 +814,79 @@ def regression_plot(study_area_dir, plot_path, sim_path, reg_plots):
     plot_pred_real(full_df, pred_list, plot_path)
 
 
+def fs_error_plot(data, result_path, area):
+    pred, real, error = data
+    x = [5, 10, 20, 40, 60, 80, 100]
 
-    # fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2)
+    fig, ax = plt.subplots()
+
+    z = np.polyfit(x, pred, 1)
+    p = np.poly1d(z)
+    ax.plot(x, p(x), color='b', linestyle='dashed')
+    ax.scatter(x, pred, color='b', label='Predicted fs')
+
+    z = np.polyfit(x, real, 1)
+    p = np.poly1d(z)
+    ax.plot(x, p(x), color='g', linestyle='dashed')
+    ax.scatter(x, real, color='g', label='Real fs')
+
+    ax.set_xlabel("Car / PT users who switch to AV (%)", fontsize=12)
+    ax.set_ylabel("Fleet Size", fontsize=12)
+
+    ax2 = ax.twinx()
+    ax2.plot(x, error, color="red", marker="o", label='Error')
+    ax2.set_ylabel("Error [ abs (1 - (pred / real) ) ]", fontsize=12)
+
+    # Add legend
+    fig.legend(loc='best', ncol=1, prop={'size': 7}, frameon=True)
+    plt.title('Predicted fs comparison for: ' + str(area), fontsize=12, fontweight=0)
+
+    # Check if out_path exists or create it
+    if not os.path.exists(str(result_path) + '/areas'):
+        os.makedirs(str(result_path) + '/areas')
+
+    fig.savefig(str(result_path) + '/areas/' + str(area))
+
+def CarPtusers_fs():
+    g1 = (full_df[full_df['area_type'] == 'rural']['CarPt_users'], full_df[full_df['area_type'] == 'rural'][('fs', '1.0')])
+    g2 = (full_df[full_df['area_type'] == 'mountain']['CarPt_users'], full_df[full_df['area_type'] == 'mountain'][('fs', '1.0')])
+    g3 = (full_df[full_df['area_type'] == 'urban']['CarPt_users'], full_df[full_df['area_type'] == 'urban'][('fs', '1.0')])
+
+    data = (g1, g2, g3)
+    colors = ("red", "green", "blue")
+    groups = ("rural", "mountain", "urban")
+
+    # Create plot
+    fig = plt.figure()
+    ax = fig.add_subplot(1, 1, 1)
+
+    for data, color, group in zip(data, colors, groups):
+        x, y = data
+        ax.scatter(x, y, alpha=0.8, c=color, edgecolors='none', s=30, label=group)
+
+    plt.title('Matplot scatter plot')
+    plt.xlabel('CarPt_users')
+    plt.ylabel('Fleet size (100%)')
+    plt.legend(loc=2)
+    plt.show()
+
+
+
+
+    # Define axis
+    # ax = plt.axes()
+    # ax.tick_params(labelright=True)
+
+    # Add titles
+    # plt.xlabel("Car / PT users who switch to AV (%)", fontsize=16)
+    # plt.ylabel(ylabel, fontsize=16)
+    #
+    # save_plot(plt, str(plot_path) + '/fs_avshare/' + str(norm), str(fig_name) + '_' + str(fit) + 'fit')
+    # save_plot(plt, str(plot_path) + '/wt_fs/' + str(fit), str(fig_name))
+    # plt.savefig(str(plot_path) + '/fs_avshare/' + str(norm) + '/' + str(fig_name) + '_' + str(fit) + 'fit.png')
+    # plt.savefig(str(plot_path) + '/wt_fs/' + str(fit) + '/' + str(fig_name) + '.png')
+
+# fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2)
     # fig.suptitle('Sharing x per column, y per row')
     # ax1.plot(x, y)
     # ax2.plot(x, y ** 2, 'tab:orange')
@@ -894,10 +980,10 @@ df_plots = [
 #                df_plots=df_plots)
 
 
-regression_plot(study_area_dir='C:/Users/Ion/TFM/data/study_areas',
-                plot_path='C:/Users/Ion/TFM/data/plots/regression/ols',
-                sim_path='C:/Users/Ion/TFM/data/plots/sim_plots/wt_fs/two_points',
-                reg_plots=[[['real_a', 'pred_a','real_b', 'pred_b', 'real_nfs', 'pred_nfs', 'real_fs', 'pred_fs'], 'reg_results']])
+# regression_plot(study_area_dir='C:/Users/Ion/TFM/data/study_areas',
+#                 plot_path='C:/Users/Ion/TFM/data/plots/regression/ols',
+#                 sim_path='C:/Users/Ion/TFM/data/plots/sim_plots/wt_fs/two_points',
+#                 reg_plots=[[['real_a', 'pred_a','real_b', 'pred_b', 'real_nfs', 'pred_nfs', 'real_fs', 'pred_fs'], 'reg_results']])
 
 # plot predefined attributes:
 # attr_list = ['node_d_km', 'edge_d_km', 'CarPt_users', 'trips',
