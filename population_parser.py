@@ -99,7 +99,7 @@ def population_parser_line(out_path, pop_file, scenario_area=None, attr_table_di
     attr_count = 0
     plans_count = 0
 
-    if os.path.isfile(str(out_path)+"/loc_freight_loading1.csv") == False:
+    if os.path.isfile(str(out_path)+"/loc_freight_loading.csv") == False:
         print(datetime.datetime.now(), 'Parsing population ...')
         CarPt_users = []
         with gzip.open(pop_file) as f:
@@ -290,6 +290,11 @@ def population_parser_line(out_path, pop_file, scenario_area=None, attr_table_di
             attr_df = pd.read_csv(str(attr_table_dir) + '/attribute_table.csv', sep=",", index_col='attributes',
                                   dtype=object)
             print(datetime.datetime.now(), 'Attributes table loaded successfully.')
+
+            # create empty row with areas name to add attributes
+            if scenario_area not in attr_df.columns:
+                attr_df[scenario_area] = None
+                print(datetime.datetime.now(), 'Added ' + str(scenario_area) + ' as column to attr_df as dtype: ' + str(attr_df[scenario_area].dtype))
 
             # Update attribute table with new added attributes or study areas
             pop_attributes = ['population', 'trips', 'CarPt_users']

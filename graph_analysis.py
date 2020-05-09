@@ -4,7 +4,7 @@ import geopandas as gpd
 import networkx as nx
 import os
 from progressbar import Percentage, ProgressBar, Bar, ETA
-# import osmnx as ox
+import osmnx as ox
 import datetime
 
 # functions from other scripts
@@ -71,12 +71,16 @@ def topology_attributes(study_area_dir, graph_file, area):
     print('----------------------------------------------------------------------')
 
     # Define way_type for each area:
-    area_type_dict = {'bern': 'urban',
+    area_type_dict = {'baden': 'rural',
+                      'bern': 'urban',
                         'bern_large': 'urban',
+                      'basel': 'urban',
                         'chur': 'mountain',
                         'freiburg': 'rural',
                         'frutigen': 'mountain',
-                        'lausanne': 'urban',
+                      'geneve': 'urban',
+                      'interlaken': 'mountain',
+                      'lausanne': 'urban',
                         'lausanne_lake': 'urban',
                         'linthal': 'mountain',
                         'locarno': 'mountain',
@@ -87,6 +91,7 @@ def topology_attributes(study_area_dir, graph_file, area):
                         'sion': 'mountain',
                         'stgallen': 'rural',
                         'test_area': 'urban',
+                      'winterthur': 'rural',
                         'zermatt': 'mountain',
                         'zurich_kreis': 'urban',
                         'zurich_large': 'urban'}
@@ -147,15 +152,17 @@ def topology_attributes(study_area_dir, graph_file, area):
             print(datetime.datetime.now(), 'Added ' + str(attribute) + ' as row to attr_df')
 
     # create empty row with areas name to add attributes
+    # if area not in attr_df.columns:
+    #
+    #     attr_df = pd.concat([attr_df, new_column], axis=1, sort=False)
+    #     attr_df = attr_df.astype({area: object})
+    #     attr_df.to_csv(str(study_area_dir) + "/attribute_table.csv", sep=",", index=True, index_label=['attributes'])
+    #     # save_attr_df(attr_df, study_area_dir, area)
+    #     print(datetime.datetime.now(), 'Added ' + str(area) + ' as column to attr_df as dtype: ' +
+    #           str(attr_df[area].dtype))
     if area not in attr_df.columns:
-        new_column = pd.DataFrame({area: [len(list(new_G)), len(new_G.edges()), study_area_shp.area]},
-                                  index=['n_nodes', 'n_edges', 'area'])
-        attr_df = pd.concat([attr_df, new_column], axis=1, sort=False)
-        attr_df = attr_df.astype({area: object})
-        attr_df.to_csv(str(study_area_dir) + "/attribute_table.csv", sep=",", index=True, index_label=['attributes'])
-        # save_attr_df(attr_df, study_area_dir, area)
-        print(datetime.datetime.now(), 'Added ' + str(area) + ' as column to attr_df as dtype: ' +
-              str(attr_df[area].dtype))
+        attr_df[area] = None
+        print(datetime.datetime.now(), 'Added ' + str(area) + ' as column to attr_df as dtype: ' + str(attr_df[area].dtype))
     print('----------------------------------------------------------------------')
 
     # Extract areas column as pandas Series, to permit parallel work with the attribute table
@@ -172,6 +179,11 @@ def topology_attributes(study_area_dir, graph_file, area):
     if pd.isnull(area_series['area_type']):
         # if pd.isnull(attr_df.loc['area_type', area]):
         area_series = dict_data(area_type_dict[area], study_area_dir, 'area_type', area, area_series)
+    if pd.isnull(area_series['n_nodes']):
+        area_series = dict_data(len(list(new_G)), study_area_dir, 'n_nodes', area, area_series)
+        area_series = dict_data(len(new_G.edges()), study_area_dir, 'n_edges', area, area_series)
+        area_series = dict_data(study_area_shp.area, study_area_dir, 'area', area, area_series)
+
 
     if pd.isnull(area_series['population_gini']):
         m_df = create_distrib(shp_path, 300, False)
@@ -319,13 +331,13 @@ def topology_attributes(study_area_dir, graph_file, area):
 
     # ----------------------------------------------------------------------
     # 8. STRAIGHTNESS CENTRALITY: compares the shortest path with the euclidean distance of each pair of nodes
-    if pd.isnull(area_series['node_straightness']):
-    # if pd.isnull(attr_df.loc['node_straightness', area]):
-        print('----------------------------------------------------------------------')
-        node_straightness = straightness(nodes_dict, new_G)
-        area_series = dict_data(node_straightness, study_area_dir, 'node_straightness', area, area_series)
-        print('----------------------------------------------------------------------')
-        # attr_df.at['node_straightness', area] = node_straightness_data
+    # if pd.isnull(area_series['node_straightness']):
+    # # if pd.isnull(attr_df.loc['node_straightness', area]):
+    #     print('----------------------------------------------------------------------')
+    #     node_straightness = straightness(nodes_dict, new_G)
+    #     area_series = dict_data(node_straightness, study_area_dir, 'node_straightness', area, area_series)
+    #     print('----------------------------------------------------------------------')
+    #     # attr_df.at['node_straightness', area] = node_straightness_data
         # save_attr_df(attr_df, study_area_dir)
 
     # ----------------------------------------------------------------------
@@ -429,14 +441,14 @@ def topology_attributes(study_area_dir, graph_file, area):
 
     # ----------------------------------------------------------------------
     # 11. OSMnx stats module
-    # if not os.path.isfile(str(shp_path) + '/' + 'stats_basic.pkl'):
-    #     print(datetime.datetime.now(), 'Calculating basic_stats')
-    #     new_G.graph['crs'] = 'epsg:2056'
-    #     new_G.graph['name'] = str(area) + '_MultiDiGraph'
-    #     basic_stats = ox.basic_stats(new_G, area=study_area_shp.area, clean_intersects=True, tolerance=15,
-    #                                  circuity_dist='euclidean')
-    #     with open(str(shp_path) + '/stats_basic.pkl', 'wb') as f:
-    #         pickle.dump(basic_stats, f, pickle.HIGHEST_PROTOCOL)
+    if not os.path.isfile(str(shp_path) + '/' + 'stats_basic.pkl'):
+        print(datetime.datetime.now(), 'Calculating basic_stats')
+        new_G.graph['crs'] = 'epsg:2056'
+        new_G.graph['name'] = str(area) + '_MultiDiGraph'
+        basic_stats = ox.basic_stats(new_G, area=study_area_shp.area, clean_intersects=True, tolerance=15,
+                                     circuity_dist='euclidean')
+        with open(str(shp_path) + '/stats_basic.pkl', 'wb') as f:
+            pickle.dump(basic_stats, f, pickle.HIGHEST_PROTOCOL)
     # if not os.path.isfile(str(study_area_dir) + '/' + 'stats_extended.pkl'):
         # print('Calculating extended_stats')
         # extended_stats = ox.extended_stats(new_G, connectivity=True, anc=True, ecc=True, bc=True, cc=True)

@@ -848,9 +848,9 @@ def fs_error_plot(data, result_path, area):
     fig.savefig(str(result_path) + '/areas/' + str(area))
 
 def CarPtusers_fs():
-    g1 = (full_df[full_df['area_type'] == 'rural']['CarPt_users'], full_df[full_df['area_type'] == 'rural'][('fs', '1.0')])
-    g2 = (full_df[full_df['area_type'] == 'mountain']['CarPt_users'], full_df[full_df['area_type'] == 'mountain'][('fs', '1.0')])
-    g3 = (full_df[full_df['area_type'] == 'urban']['CarPt_users'], full_df[full_df['area_type'] == 'urban'][('fs', '1.0')])
+    g1 = (full_df[full_df['area_type'] == 'rural']['CarPt_users'], full_df[full_df['area_type'] == 'rural'][('norm', '1.0')])
+    g2 = (full_df[full_df['area_type'] == 'mountain']['CarPt_users'], full_df[full_df['area_type'] == 'mountain'][('norm', '1.0')])
+    g3 = (full_df[full_df['area_type'] == 'urban']['CarPt_users'], full_df[full_df['area_type'] == 'urban'][('norm', '1.0')])
 
     data = (g1, g2, g3)
     colors = ("red", "green", "blue")
@@ -864,9 +864,9 @@ def CarPtusers_fs():
         x, y = data
         ax.scatter(x, y, alpha=0.8, c=color, edgecolors='none', s=30, label=group)
 
-    plt.title('Matplot scatter plot')
+    # plt.title('Matplot scatter plot')
     plt.xlabel('CarPt_users')
-    plt.ylabel('Fleet size (100%)')
+    plt.ylabel('Normalized Fleet Size (100%)')
     plt.legend(loc=2)
     plt.show()
 

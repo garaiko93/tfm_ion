@@ -51,7 +51,7 @@ print(datetime.datetime.now(), 'Main script begins ...')
 # population_parser_line(scenarios_dir)
 
 # population_parser_setup(r'C:/Users/Ion/TFM/data/scenarios')
-# population_parser_setup(r'C:/Users/Ion/TFM/data/study_areas')
+population_parser_setup(r'C:/Users/Ion/TFM/data/study_areas')
 
 # -------------------------------------------------------------------------------------------------------------
 # CREATE AND ANALYSE EVERY STUDY AREA
@@ -103,9 +103,9 @@ fit_func='two_points'
 #                    attr_list=None)
 
 
-correlation_matrix(study_area_dir='C:/Users/Ion/TFM/data/study_areas',
-                   sim_path='C:/Users/Ion/TFM/data/plots/sim_plots/wt_fs/' + str(fit_func),
-                   fit=fit_func)
+# correlation_matrix(study_area_dir='C:/Users/Ion/TFM/data/study_areas',
+#                    sim_path='C:/Users/Ion/TFM/data/plots/sim_plots/wt_fs/' + str(fit_func),
+#                    fit=fit_func)
 
 
 # -------------------------------------------------------------------------------------------------------------
