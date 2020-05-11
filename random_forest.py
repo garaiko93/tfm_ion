@@ -101,15 +101,6 @@ def randomForest(df, test_area, n_estimators):
     for pair in feature_importances:
         feature_importances_dict[pair[0]] = pair[1]
 
-    # i = 0
-    # if len(feature_importances) < 5:
-    #     limit = len(feature_importances)
-    # else:
-    #     limit = 10
-    # while i < limit:
-    #     print('Variable: ', feature_importances[i][0], 'Importance: ', feature_importances[i][1])
-    #     i +=1
-    # print('----------------------------------')
     return error, feature_importances_dict, predictions[0], test_labels
 
     # Print out the feature and importances
@@ -145,17 +136,6 @@ def randomForest(df, test_area, n_estimators):
     # graph.write_png(out_file + '/tree.png')
 
 
-
-
-
-
-# full_df = prepare_df(study_area_dir='C:/Users/Ion/TFM/data/study_areas',
-#                      sim_path='C:/Users/Ion/TFM/data/plots/sim_plots/wt_fs/two_points',
-#                      out_path='C:/Users/Ion/TFM/data/plots/regression/ols/try8',
-#                      pred_var=('norm', '1.0'),
-#                      drop_attr=None,
-#                      select_attr=None)
-
 # attr_sel = ['population_density', 'CarPt_users', 'efficiency', 'btw_acc_trip_generation', 'node_straightness']
 # attr_sel = ['CarPt_users', 'population_density', 'area']
 
@@ -174,13 +154,12 @@ for i in range(len(variables)):
                               drop_attr=None,
                               select_attr=None)
 
-
     # Iterate over areas to predict on them
     fi_df = pd.DataFrame(None, columns=df.columns)
     for test_area in df.index:
         error, feature_imp, pred, real = randomForest(df=df,
                                                       test_area=test_area,
-                                                      n_estimators=100)
+                                                      n_estimators=1000)
         fi_df = fi_df.append(feature_imp, sort=True, ignore_index=True)
 
     # Store importance of attributes of each test_area
@@ -200,9 +179,11 @@ for i in range(len(variables)):
 
 # Plot i
 result = comparison_df.transpose()
-result.plot(y=['norm', 'fs'], kind="bar")
-plt.xlabel('Attribute')
+# fig, axs = plt.subplots(nrows=2, ncols=1, figsize=(18,8))
+result.plot(y=['norm', 'fs'], kind="bar", figsize=(18,8))
+# plt.xlabel('Attribute')
 plt.ylabel('Attributes Importance')
+plt.tight_layout()
 
 
 
@@ -210,6 +191,7 @@ plt.ylabel('Attributes Importance')
 # PLOT ii: removing most important variable
 # ----------------------------------------------------------------------------------------------
 most_imp = []
+out_path = 'C:/Users/Ion/TFM/data/plots/regression/randomForest'
 pred_var = ('norm', '1.0')
 # df_attr = pd.read_csv(str(study_area_dir) + '/attribute_table_AVG_T.csv', sep=",", index_col='study_area')
 df_attr = pd.read_csv('C:/Users/Ion/TFM/data/study_areas/attribute_table_AVG_T.csv', sep=",", index_col='study_area')
@@ -219,7 +201,7 @@ comparison_df = None
 for i in range(len(df_attr.columns)):
     df, check_df = prepare_df(study_area_dir='C:/Users/Ion/TFM/data/study_areas',
                               sim_path='C:/Users/Ion/TFM/data/plots/sim_plots/wt_fs/two_points',
-                              out_path='C:/Users/Ion/TFM/data/plots/regression/randomForest',
+                              out_path=out_path,
                               pred_var=pred_var,
                               drop_attr=most_imp,
                               select_attr=None)
@@ -266,11 +248,6 @@ for i in range(len(df_attr.columns)):
         comparison_df = pd.DataFrame(None, columns=fi_df.columns)
         comparison_df = comparison_df.append(s)
 
-    # Add most important attribute
-
-# for i in range(1, len(area_pred_list),15):
-#     print(area_pred_list[i])
-
 # Get best predictino of each study_area-
 area_pred_df = pd.DataFrame(area_pred_list, columns=['study_area', 'pred_nfs', 'real_nfs', 'error_nfs', 'pred_fs', 'real_fs', 'error_fs'])
 area_type_dict = {'baden': 'rural',
@@ -308,39 +285,141 @@ for area in set(area_pred_df['study_area']):
 pred_data_df = pd.DataFrame(pred_data_list, columns=['study_area', 'area_type', 'best_pred', 'best_pred_ix', 'attribute'])
 pred_data_df = pred_data_df.set_index('study_area')
 
+comparison_df.to_csv(str(out_path) + '/comparison_df.csv', sep=",", index=True, index_label='max_attr')
+area_pred_df.to_csv(str(out_path) + '/area_pred_df.csv', sep=",")
+pred_data_df.to_csv(str(out_path) + '/pred_data_df.csv', sep=",", index=True, index_label='study_area')
+
+
 
 # Plot ii
-# result = comparison_df.transpose()
-# comparison_df.plot(y=['importance'], kind="bar")
-# comparison_df.plot.line(y=['avg_error'], color='r')
-# plt.xlabel('Attribute')
-# plt.ylabel('Attributes Importance')
+def plot_ii():
+    fig, ax = plt.subplots()
 
+    ax.bar(comparison_df.index, comparison_df['importance'], label='Attribute importance')
+    ax.set_ylabel("Attribute importance / Prediction Avg Error (%)", fontsize=12)
 
-fig, ax = plt.subplots()
+    ax.plot(comparison_df.index, comparison_df['avg_error'], color='r', label='Average Error')
 
-ax.bar(comparison_df.index, comparison_df['importance'], label='Attribute importance')
-ax.set_ylabel("Attribute importance / Prediction Avg Error (%)", fontsize=12)
+    plt.xticks(rotation=90)
 
-ax.plot(comparison_df.index, comparison_df['avg_error'], color='r', label='Average Error')
+    # ax2 = ax.twinx()
+    # ax2.invert_yaxis()
+    # bar_data_list=[list(comparison_df.index)]
+    # colors = []
+    # label_check = [0, 0, 0]
+    # for area in set(area_pred_df['study_area']):
+    #     area_df = pred_data_df.loc[area]
+    #     bar_data = []
+    #     area_type = area_df.loc['area_type']
+    #     ix = area_df.loc['best_pred_ix']
+    #     for i in range(len(comparison_df)):
+    #         ix = area_df.loc['best_pred_ix']
+    #         if i == ix:
+    #             bar_data.append(area_df.loc['best_pred'])
+    #         else:
+    #             bar_data.append(0)
+    #     if area_type == 'rural':
+    #         color = 'm'
+    #     elif area_type == 'urban':
+    #         color = 'b'
+    #     elif area_type == 'mountain':
+    #         color = 'g'
+    #
+    #     bar_data_list.append(bar_data)
+    #     colors.append(color)
+    # for x, h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15 in zip(bar_data_list[0], bar_data_list[1], bar_data_list[2], bar_data_list[3], bar_data_list[4], bar_data_list[5], bar_data_list[6], bar_data_list[7], bar_data_list[8], bar_data_list[9], bar_data_list[10], bar_data_list[11], bar_data_list[12], bar_data_list[13], bar_data_list[14], bar_data_list[15]):
+    #     for i, (h, c) in enumerate(sorted(zip([h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15], colors))):
+    #         if h < 1:
+    #             if c == 'm':
+    #                 if label_check[0] == 0:
+    #                     ax2.bar(x, h, color=c, zorder=-i, label='Rural Area')
+    #                     label_check[0] += 1
+    #                 else:
+    #                     ax2.bar(x, h, color=c, zorder=-i)
+    #             elif c == 'b':
+    #                 if label_check[1] == 0:
+    #                     ax2.bar(x, h, color=c, zorder=-i, label='Urban Area')
+    #                     label_check[1] += 1
+    #                 else:
+    #                     ax2.bar(x, h, color=c, zorder=-i)
+    #             elif c == 'g':
+    #                 if label_check[2] == 0:
+    #                     ax2.bar(x, h, color=c, zorder=-i, label='Mountain Area')
+    #                     label_check[2] += 1
+    #                 else:
+    #                     ax2.bar(x, h, color=c, zorder=-i)
+    #             # ax2.bar(x, h, color=c, zorder=-i)
+    #             ax2.hlines(y=h, xmin=list(comparison_df.index).index(x), xmax=43, colors=c, linewidth=0.8, linestyles='dashdot', zorder=100)
+    #             # ax.hlines(y=h, xmin=0, xmax=list(comparison_df.index).index(x), colors=c, linewidth=0.8, linestyles='dashdot', zorder=100)
+    # top, bottom = ax2.get_ylim()
+    # ax2.set_ylim(top*1.2, bottom)
+    # ax2.set_ylabel("Best prediction by area type (% error)", fontsize=12)
 
+    # Add legend
+    fig.legend(loc='best', ncol=1, prop={'size': 12}, frameon=True)
+
+    plt.tight_layout()
+    plt.title('Random Forest prediction by removing most important attribute', fontsize=12, fontweight=0)
+    return ax
+
+# ----------------------------------------------------------------------------------------------
+# Plot ii'
+def plot_iip():
+    fig, ax = plt.subplots()
+
+    for area in pred_data_df.index:
+        area_df = pred_data_df.loc[area]
+        area_type = area_df.loc['area_type']
+        ix = area_df.loc['best_pred_ix']
+        if area_type == 'rural':
+            color = 'm'
+        elif area_type == 'urban':
+            color = 'b'
+        elif area_type == 'mountain':
+            color = 'g'
+
+        ax.plot(comparison_df.index, area_pred_df[area_pred_df['study_area'] == area]['error_nfs'], color=color)
+        ax.plot(pred_data_df.loc[area, 'best_pred_ix'],
+                pred_data_df.loc[area, 'best_pred'],
+                'o',
+                color=color)
+        # ax.vlines(pred_data_df.loc[area, 'best_pred_ix'], 0, pred_data_df.loc[area, 'best_pred'], colors=color, linewidth=0.8, linestyles='dashdot')
+
+    plt.xticks(rotation=90)
+    ax.set_ylabel("Prediction error (%)", fontsize=12)
+
+    # Add legend
+    fig.legend(loc='best', ncol=1, prop={'size': 12}, frameon=True)
+
+    plt.tight_layout()
+    plt.title('Random Forest prediction by removing most important attribute', fontsize=12, fontweight=0)
+    return ax
+
+# ----------------------------------------------------------------------------------------------
+# Plot i+ii
+
+fig, axs = plt.subplots(nrows=2, ncols=1, figsize=(18,8))
+i,j=[1,0]
+
+# Top plot
+axs[i].bar(comparison_df.index, comparison_df['importance'], label='Attribute importance')
+# axs[i].set_ylabel("Attribute importance / Prediction Avg Error (%)", fontsize=12)
+
+axs[i].plot(comparison_df.index, comparison_df['avg_error'], color='r', label='Average Error')
 plt.xticks(rotation=90)
 
-ax2 = ax.twinx()
-ax2.invert_yaxis()
-bar_data_list=[list(comparison_df.index)]
-colors = []
-for area in set(area_pred_df['study_area']):
+# Add legend
+axs[i].legend(loc='best', ncol=1, prop={'size': 12}, frameon=True)
+
+# plt.tight_layout()
+# plt.title('Random Forest prediction by removing most important attribute', fontsize=12, fontweight=0)
+
+# Bottom plot: evolution of prediction for each area with best prediction
+label_check = [0, 0, 0, 0]
+for area in pred_data_df.index:
     area_df = pred_data_df.loc[area]
-    bar_data = []
     area_type = area_df.loc['area_type']
     ix = area_df.loc['best_pred_ix']
-    for i in range(len(comparison_df)):
-        ix = area_df.loc['best_pred_ix']
-        if i == ix:
-            bar_data.append(area_df.loc['best_pred'])
-        else:
-            bar_data.append(0)
     if area_type == 'rural':
         color = 'm'
     elif area_type == 'urban':
@@ -348,40 +427,94 @@ for area in set(area_pred_df['study_area']):
     elif area_type == 'mountain':
         color = 'g'
 
-    bar_data_list.append(bar_data)
-    colors.append(color)
-for x, h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15 in zip(bar_data_list[0], bar_data_list[1], bar_data_list[2], bar_data_list[3], bar_data_list[4], bar_data_list[5], bar_data_list[6], bar_data_list[7], bar_data_list[8], bar_data_list[9], bar_data_list[10], bar_data_list[11], bar_data_list[12], bar_data_list[13], bar_data_list[14], bar_data_list[15]):
-    for i, (h, c) in enumerate(sorted(zip([h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15], colors))):
-        if h < 1:
-            ax2.bar(x, h, color=c, zorder=-i)
-            ax2.hlines(y=h, xmin=list(comparison_df.index).index(x), xmax=43, colors=c, linewidth=0.8, linestyles='dashdot', zorder=100)
-top, bottom = ax2.get_ylim()
-ax2.set_ylim(top*1.2, bottom)
-ax2.set_ylabel("Best prediction by area type (% error)", fontsize=12)
+    # Plot dot with best prediction of area
+    if label_check[3] == 0:
+        axs[j].plot(pred_data_df.loc[area, 'best_pred_ix'], pred_data_df.loc[area, 'best_pred'], 'o', color=color, zorder=10)
+        axs[j].plot(pred_data_df.loc[area, 'best_pred_ix'], pred_data_df.loc[area, 'best_pred'], 'o', color='k', label='Best prediction', zorder=0)
+        label_check[3] += 1
+    else:
+        axs[j].plot(pred_data_df.loc[area, 'best_pred_ix'], pred_data_df.loc[area, 'best_pred'], 'o', color=color)
+
+    # Plot transition of predicted errors for each area
+    if color == 'm':
+        if label_check[0] == 0:
+            axs[j].plot(comparison_df.index, area_pred_df[area_pred_df['study_area'] == area]['error_nfs'], color=color, label='Rural Area')
+            label_check[0] += 1
+        else:
+            axs[j].plot(comparison_df.index, area_pred_df[area_pred_df['study_area'] == area]['error_nfs'], color=color)
+    elif color == 'b':
+        if label_check[1] == 0:
+            axs[j].plot(comparison_df.index, area_pred_df[area_pred_df['study_area'] == area]['error_nfs'], color=color, label='Urban Area')
+            label_check[1] += 1
+        else:
+            axs[j].plot(comparison_df.index, area_pred_df[area_pred_df['study_area'] == area]['error_nfs'], color=color)
+    elif color == 'g':
+        if label_check[2] == 0:
+            axs[j].plot(comparison_df.index, area_pred_df[area_pred_df['study_area'] == area]['error_nfs'], color=color, label='Mountain Area')
+            label_check[2] += 1
+        else:
+            axs[j].plot(comparison_df.index, area_pred_df[area_pred_df['study_area'] == area]['error_nfs'], color=color)
+
+axs[j].tick_params(axis='x',          # changes apply to the x-axis
+                   which='both',      # both major and minor ticks are affected
+                   bottom=True,      # ticks along the bottom edge are off
+                   top=False,         # ticks along the top edge are off
+                   labelbottom=False) # labels along the bottom edge are off
+axs[j].set_ylabel("Prediction error by areas (1=100%)", fontsize=12)
 
 # Add legend
-urban_patch = mpatches.Patch(color='m', label='Urban Areas')
-rural_patch = mpatches.Patch(color='b', label='Rural Areas')
-mountain_patch = mpatches.Patch(color='g', label='Mountain Areas')
-mountain_patch = mpatches.Patch(color='g', label='Mountain Areas')
-mountain_patch = mpatches.Patch(color='g', label='Mountain Areas')
-fig.legend(loc='best', ncol=1, prop={'size': 12}, frameon=True, handles=[urban_patch, rural_patch, mountain_patch])
+axs[j].legend(loc='upper right', ncol=1, prop={'size': 12}, frameon=True)
 
 plt.tight_layout()
-plt.title('Random Forest prediction by removing most important attribute', fontsize=12, fontweight=0)
-
-
+# plt.title('Random Forest prediction by removing most important attribute', fontsize=12, fontweight=0)
+plt.show()
 
 # ----------------------------------------------------------------------------------------------
-# df = pd.get_dummies(df)
-# print('The shape of our features is:', df.shape)
-# df_detail = df.describe()
-# print(pred_var, 'all attributes prediction')
+# Plot iii
+
+import matplotlib.pyplot as plt
+from matplotlib.dates import date2num
+
+x = [
+    datetime.datetime(2011, 1, 4, 0, 0),
+    datetime.datetime(2011, 1, 5, 0, 0),
+    datetime.datetime(2011, 1, 6, 0, 0)
+]
+
+y = [4, 9, 2]
+z = [1, 2, 3]
+k = [11, 12, 13]
+
+for area in pred_data_df.index:
+    area_df = area_pred_df[area_pred_df['study_area'] == area].reset_index()
+    pred_bin = [0, 0, 0, 0]
+    for pred in area_df['error_nfs']:
+        if pred <= 0.05:
+            pred_bin[0] += 1
+        elif 0.05 < pred <= 0.2:
+            pred_bin[1] += 1
+        elif 0.2 < pred <= 0.5:
+            pred_bin[2] += 1
+        elif 0.5 < pred:
+            pred_bin[3] += 1
 
 
-# error_list = []
-# for area in df.index:
-#     error = randomForest(df, area)
-#     error_list.append(error)
-# print('error avg:', sum(error_list)/len(error_list))
+ax = plt.subplot(111)
+ax.bar(x-0.15, y, width=0.1, color=(57, 127, 30), align='center')
+ax.bar(x-0.05, z, width=0.1, color=(65, 171, 24), align='center')
+ax.bar(x+0.05, k, width=0.1, color=(184, 111, 30), align='center')
+ax.bar(x+0.15, k, width=0.1, color='r', align='center')
+
+plt.show()
+
+
+
+
+
+
+
+
+
+
+
 

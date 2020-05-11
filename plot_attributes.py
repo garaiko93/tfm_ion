@@ -168,7 +168,7 @@ def grid_plot(df, fig_name):
     # grid = grid.map_diag(sb.distplot, hist=False)
 
     # grid = grid.add_legend(fontsize=14, ncol=4, bbox_to_anchor=(0.5, 0.01), title='')#title='Area type',
-    grid = grid.add_legend(fontsize=14, title='Area type')#title='Area type',
+    # grid = grid.add_legend(fontsize=14, title='Area type')#title='Area type',
     # plt.legend(fontsize=14, ncol=3)
     # ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.05), fancybox=True, shadow=True, ncol=5)
     return grid
@@ -553,20 +553,59 @@ def plot_sim_results(study_area_dir, plot_path, fit_func):
 def plot_opt_fs(df, fig_name, ylabel, norm, study_area_dir, plot_path, regression, fit, cmap='gist_rainbow'):
     print(datetime.datetime.now(), 'Creating plot ...')
     # style
-    plt.figure(figsize=(15, 8))
-    plt.rcParams.update({'font.size': 14})
+    plt.figure(figsize=(9, 6))
+    plt.rcParams.update({'font.size': 16})
     plt.style.use('seaborn-darkgrid')
 
     # create a color palette
     NUM_COLORS = len(df)
     palette = plt.get_cmap(cmap)
-
     # multiple line plot
     num = 0
+
+    # Define way_type for each area:
+    area_type_dict = {'baden': 'rural',
+                      'bern': 'urban',
+                      'bern_large': 'urban',
+                      'basel': 'urban',
+                      'chur': 'mountain',
+                      'freiburg': 'rural',
+                      'frutigen': 'mountain',
+                      'geneve': 'urban',
+                      'interlaken': 'mountain',
+                      'lausanne': 'urban',
+                      'lausanne_lake': 'urban',
+                      'linthal': 'mountain',
+                      'locarno': 'mountain',
+                      'lugano': 'urban',
+                      'luzern': 'urban',
+                      'neuchatel': 'rural',
+                      'plateau': 'rural',
+                      'sion': 'mountain',
+                      'stgallen': 'rural',
+                      'test_area': 'urban',
+                      'winterthur': 'rural',
+                      'zermatt': 'mountain',
+                      'zurich_kreis': 'urban',
+                      'zurich_large': 'urban'}
+    area_type_list = []
     for area in df.index:
         # fit curve out of simulation results
         x = [5, 10, 20, 40, 60, 80, 100]
         y = list(df.loc[area])
+
+        area_type = area_type_dict[area]
+        if area_type == 'rural':
+            # color = (255, 51, 150)
+            color = '#EB0079'
+        elif area_type == 'urban':
+            # color = (51, 170, 255)
+            color = '#00A3F1'
+        elif area_type == 'mountain':
+            # color = (1, 218, 7)
+            color = '#0DC300'
+        else:
+            color = None
 
         if regression == 'linear':
             # fit linear regression and export a, b
@@ -574,13 +613,21 @@ def plot_opt_fs(df, fig_name, ylabel, norm, study_area_dir, plot_path, regressio
             a, b = z
 
             # df_update(str(study_area_dir) + '/attr_table_AVG_T.csv', ['a', 'b'], [a, b], area)
-            df_update(str(plot_path) + '/wt_fs/' + str(fit) + '/linear_regression.csv', ['a', 'b'], [a, b], area)
+            # df_update(str(plot_path) + '/wt_fs/' + str(fit) + '/linear_regression.csv', ['a', 'b'], [a, b], area)
             # df_update(str(plot_path) + '/wt_fs/' + str(fit) + '/linear_regression_' + str(fit) + 'fit.csv', ['a', 'b'], [a, b], area)
 
             p = np.poly1d(z)
-            plt.plot(x, p(x), color=palette(1. * num / NUM_COLORS), linestyle='dashed')
+            if area_type not in area_type_list:
+                plt.plot(x, p(x), color=color, linestyle='dashed')
+                plt.scatter(x, y, color=color, label=area_type)
+                area_type_list.append(area_type)
+            else:
+                plt.plot(x, p(x), color=color, linestyle='dashed')
+                plt.scatter(x, y, color=color)
 
-            plt.scatter(x, y, color=palette(1. * num / NUM_COLORS), label="%s: %sx + %s" % (area, "{:.5f}".format(a), "{:.5f}".format(b)))
+
+            # plt.plot(x, p(x), color=palette(1. * num / NUM_COLORS), linestyle='dashed')
+            # plt.scatter(x, y, color=palette(1. * num / NUM_COLORS), label="%s: %sx + %s" % (area, "{:.5f}".format(a), "{:.5f}".format(b)))
         else:
             # fit exp curve
             xx, yy, opt_fs = tend_curve(x, y, func=regression)
@@ -591,7 +638,7 @@ def plot_opt_fs(df, fig_name, ylabel, norm, study_area_dir, plot_path, regressio
         num += 1
 
     # Add legend
-    plt.legend(loc='best', ncol=1, prop={'size': 12}, frameon=True, title='Study Area')
+    plt.legend(loc='best', ncol=1, prop={'size': 15}, frameon=True, title='Area type')
 
     # Define axis
     ax = plt.axes()
@@ -602,13 +649,14 @@ def plot_opt_fs(df, fig_name, ylabel, norm, study_area_dir, plot_path, regressio
     # ax.set_xlim(left, right)
 
     # Add titles
-    plt.title('Fleet size / AV share value: ' + str(fit) + ' fit.', fontsize=16, fontweight=0,
-              color='orange')
+    # plt.title('Fleet size / AV share value: ' + str(fit) + ' fit.', fontsize=16, fontweight=0, color='orange')
     plt.xlabel("Car / PT users who switch to AV (%)", fontsize=16)
     plt.ylabel(ylabel, fontsize=16)
 
     save_plot(plt, str(plot_path) + '/fs_avshare/' + str(norm), str(fig_name) + '_' + str(fit) + 'fit')
     save_plot(plt, str(plot_path) + '/wt_fs/' + str(fit), str(fig_name))
+    # save_plot(plt, str(plot_path), str(fig_name) + '_' + str(fit) + 'fit')
+
     # plt.savefig(str(plot_path) + '/fs_avshare/' + str(norm) + '/' + str(fig_name) + '_' + str(fit) + 'fit.png')
     # plt.savefig(str(plot_path) + '/wt_fs/' + str(fit) + '/' + str(fig_name) + '.png')
 
@@ -872,69 +920,6 @@ def CarPtusers_fs():
 
 
 
-
-    # Define axis
-    # ax = plt.axes()
-    # ax.tick_params(labelright=True)
-
-    # Add titles
-    # plt.xlabel("Car / PT users who switch to AV (%)", fontsize=16)
-    # plt.ylabel(ylabel, fontsize=16)
-    #
-    # save_plot(plt, str(plot_path) + '/fs_avshare/' + str(norm), str(fig_name) + '_' + str(fit) + 'fit')
-    # save_plot(plt, str(plot_path) + '/wt_fs/' + str(fit), str(fig_name))
-    # plt.savefig(str(plot_path) + '/fs_avshare/' + str(norm) + '/' + str(fig_name) + '_' + str(fit) + 'fit.png')
-    # plt.savefig(str(plot_path) + '/wt_fs/' + str(fit) + '/' + str(fig_name) + '.png')
-
-# fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2)
-    # fig.suptitle('Sharing x per column, y per row')
-    # ax1.plot(x, y)
-    # ax2.plot(x, y ** 2, 'tab:orange')
-    # ax3.plot(x, -y, 'tab:green')
-    # ax4.plot(x, -y ** 2, 'tab:red')
-    #
-    # for ax in fig.get_axes():
-    #     ax.label_outer()
-    #
-    # for i in range(1, len(df_plots) + 1):
-    #     data = df_plots[i-1]
-    #     x = list(full_df[data[0]])
-    #     y = list(full_df[data[1]])
-    #     area_type = list(full_df['area_type'])
-    #
-    #     x = full_df[data[0]]
-    #     y = full_df[data[1]]
-    #     area_type = full_df['area_type']
-    #
-    #
-    #
-    #     ax1 = full_df.plot.scatter(x='pred_a', y='real_a')
-    #     ax1.set_ylim(0, max(full_df['real_a'])*1.1)
-    #     ax1.set_xlim(0, max(full_df['pred_a'])*1.1)
-    #
-    #     # plt.subplot(2, 2, i)
-    #     # ax = plt.subplot(2, 2, i)
-    #     # ax.scatter(x, y, alpha=0.8, palette="husl", edgecolors='none', s=30, label=area_type)
-    #     # # plt.scatter(x, y, s=area, palette="husl", alpha=0.5)
-    #     plt.plot(x, y, 'o', color='black')
-    #     # Create plot
-    #     fig = plt.figure()
-    #     ax = fig.add_subplot(1, 1, 1)
-    #
-    #     # for data, color, group in zip(data, colors, groups):
-    #     #     x, y = data
-    #     ax.scatter(x, y, alpha=0.8, label=area_type)
-    #
-    #     plt.title('Matplot scatter plot')
-    #     plt.legend(loc=2)
-    #     plt.show()
-
-
-    # setup_gridplot(study_area_dir=study_area_dir,
-    #                plot_path=reg_path,
-    #                df_plots=reg_plots,
-    #                df=full_df)
-
 # -----------------------------------------------------------------------------
 # SIMULATION RESULTS PLOTS
 # -----------------------------------------------------------------------------
@@ -947,10 +932,10 @@ fit_func = 'two_points'     # ['exp', 'power', 'best', 'two_points']
 #                  fit_func=fit_func)
 # #
 # # # This creates for a defined fs or fs_N csv, the corresponding plot fs vs avshare value, with a regression (linear, exp)
-# plot_fs_avs_setup(study_area_dir='C:/Users/Ion/TFM/data/study_areas',
-#                   plot_path='C:/Users/Ion/TFM/data/plots/sim_plots',
-#                   regression='linear',       # ['linear' (saves a b as attributes), 'exp', 'power', 'quadratic', 'best']
-#                   fit=fit_func)              # ['exp', 'power', 'best', 'two_points'] any already computed fit foldername of wt/fs
+plot_fs_avs_setup(study_area_dir='C:/Users/Ion/TFM/data/study_areas',
+                  plot_path='C:/Users/Ion/TFM/data/plots/sim_plots',
+                  regression='linear',       # ['linear' (saves a b as attributes), 'exp', 'power', 'quadratic', 'best']
+                  fit=fit_func)              # ['exp', 'power', 'best', 'two_points'] any already computed fit foldername of wt/fs
 
 
 # correlation_matrix(study_area_dir='C:/Users/Ion/TFM/data/study_areas',
@@ -968,15 +953,16 @@ fit_func = 'two_points'     # ['exp', 'power', 'best', 'two_points']
 df_plots = [
 #     [['network_distance', 'efficiency', 'node_straightness', 'eccentricity', 'avg_shortest_path_duration', 'area_type'], 'random'],
 #     [['network_distance', 'node_d_km', 'edge_d_km', 'intersection_d_km', 'street_d_km', 'area_type'], 'densities'],
+    [['network_distance', 'node_d_km', 'street_d_km', 'area_type'], 'densities']
 #     [['network_distance', 'population', 'trips', 'area', 'circuity_avg', 'area_type'], 'dimensionless'],
 #     [['network_distance', 'avg_degree_connectivity', 'avg_edge_density', 'degree_centrality', 'avg_neighbor_degree', 'area_type'], 'degrees'],
 #     [['network_distance', 'clustering*', 'node_betweenness*', 'edge_betweenness', 'street_d_km', 'area_type'], 'dicts'],
 #     [['network_distance', 'btw_home_trip_production', 'btw_empl_trip_generation', 'btw_acc_trip_generation', 'btw_acc_trip_production', 'area_type'], 'btw_acc']
 #     # [['network_distance', 'avg_degree_connectivity', 'intersection_d_km', 'avg_neighbor_degree', 'area_type'], 'btw_acc']
-    [['population_gini', 'population','population_density', 'a', 'b', '1.0', 'area_type'], 'pop_gini']
+#     [['population_gini', 'population','population_density', 'a', 'b', '1.0', 'area_type'], 'pop_gini']
 ]
 # setup_gridplot(study_area_dir='C:/Users/Ion/TFM/data/study_areas',
-#                plot_path='C:/Users/Ion/TFM/data/plots/attribute_plots/facetPlot',
+#                plot_path='C:/Users/Ion/TFM/data/plots/attribute_plots/facetPlot/simpler',
 #                df_plots=df_plots)
 
 
