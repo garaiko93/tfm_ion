@@ -32,6 +32,7 @@ def data_setup(study_area_dir, sim_path, result_path, regression_func, predict_o
 
     full_df = pd.concat([df, df_sim_N, df_sim, df_lr], axis=1, sort=False)
     full_df = full_df.sort_values(by=['network_distance'], ascending=False)
+    full_df = full_df.drop(['baden', 'interlaken', 'geneve', 'basel', 'winterthur'])
 
     for predic in predict_on:
         print(predic)
@@ -113,7 +114,7 @@ def setup_xy(full_df, predict_on, test_areas=None):
 # -----------------------------------------------------------------------------
 def OLS_regression(X, y, predict_on):
     var_name = predict_on[1]
-
+    # print(X,y)
     model = sm.OLS(y, X)
     results = model.fit()
 
@@ -333,7 +334,10 @@ predict_on = [
     # ['a', ['population_density', 'CarPt_users', 'efficiency', 'btw_acc_trip_generation', 'node_straightness'], True],
     # ['b', ['n_intersection', 'avg_neighbor_degree', 'edge_betweenness', 'node_load_centrality'], True]
     # try8
-    ['a', ['population_density', 'CarPt_users'], True],
+    # ['a', ['population_density', 'CarPt_users'], True],
+    # ['b', ['n_intersection', 'avg_neighbor_degree', 'edge_betweenness', 'node_load_centrality'], True]
+    # try9
+    ['a', ['CarPt_users', 'efficiency', 'btw_acc_trip_generation', 'node_straightness'], True],
     ['b', ['n_intersection', 'avg_neighbor_degree', 'edge_betweenness', 'node_load_centrality'], True]
 
     # ['a', ['population', 'CarPt_users', 'intersection_d_km', 'edge_load_centrality'], True],
@@ -350,7 +354,7 @@ predict_on = [
 
 data_setup(study_area_dir='C:/Users/Ion/TFM/data/study_areas',
            sim_path='C:/Users/Ion/TFM/data/plots/sim_plots/wt_fs/two_points',
-           result_path='C:/Users/Ion/TFM/data/plots/regression/ols/try8',
+           result_path='C:/Users/Ion/TFM/data/plots/regression/ols/try9',
            regression_func=OLS_regression,
            predict_on=predict_on)
 

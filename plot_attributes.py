@@ -154,6 +154,9 @@ def corr(x, y, **kwargs):
 
 def grid_plot(df, fig_name):
     # Create a pair grid instance
+    # plt.figure(figsize=(9, 6))
+    plt.rcParams.update({'font.size': 16})
+
     grid = sb.PairGrid(data=df, hue='area_type', palette="husl", diag_sharey=False)
     # grid = sb.PairGrid(data=df, hue='area_type', palette="husl", height=4, aspect=1)
     # grid = sb.PairGrid(data=df)
@@ -244,7 +247,7 @@ def correlation_matrix(study_area_dir, sim_path, fit):
 # -----------------------------------------------------------------------------
 # PLOT SIM_RESULTS
 # -----------------------------------------------------------------------------
-def tend_curve(x, y, func='exp', column=None):
+def tend_curve(x, y, func='exp', wt_threshold=None, column=None):
     def exponential(x, a, k, b):
         return a * np.exp(-k * x) + b
 
@@ -312,23 +315,19 @@ def tend_curve(x, y, func='exp', column=None):
             avg_error = 10000
         return avg_error
 
-    # Select which (exponential/quadratic) curves have less error on the fitting
-    # exp_error = error_f(x, y, exponential)
-    # quad_error = error_f(x, y, quadratic)
-
     # Proceed depending on selected function
     if func == 'exp':
         opt, pcov = curve_fit(exponential, x, y, p0=(1., 1.e-5, 1.), maxfev=20000)
         a, k, b = opt
 
         x2, y2 = plot_curve(x, exponential, a, k, b, False)
-        opt_fs = int(np.rint(inv_exponential(300, a, k, b)))
+        opt_fs = int(np.rint(inv_exponential(wt_threshold, a, k, b)))
 
     elif func == 'qudratic':
         opt, pcov = curve_fit(exponential, x, y, p0=(1., 1.e-5, 1.), maxfev=20000)
         a, k, b = opt
 
-        opt_fs = int(np.rint(inv_quadratic(300, a, k, b)))
+        opt_fs = int(np.rint(inv_quadratic(wt_threshold, a, k, b)))
         x2, y2 = plot_curve(x, quadratic, a, k, b, opt_fs, True)
 
     elif func == 'power':
@@ -337,11 +336,11 @@ def tend_curve(x, y, func='exp', column=None):
         a, k, b = opt
         print(opt)
         x2, y2 = plot_curve(x, power, a, k, b, False)
-        opt_fs = int(np.rint(inv_power(300, a, k, b)))
+        opt_fs = int(np.rint(inv_power(wt_threshold, a, k, b)))
 
     elif func == 'two_points':
         i = 0
-        while y.iloc[i] > 300:
+        while y.iloc[i] > wt_threshold:
             i += 1
         upper = (x[i - 1], y.iloc[i - 1])
         lower = (x[i], y.iloc[i])
@@ -355,7 +354,7 @@ def tend_curve(x, y, func='exp', column=None):
         # print("Line Solution is y = {b}x + {a}".format(b=b, a=a))
 
         x2, y2 = plot_curve(x, two_points, a, k, b, check_q=False)
-        opt_fs = int(np.rint(inv_two_points(300, a, k, b)))
+        opt_fs = int(np.rint(inv_two_points(wt_threshold, a, k, b)))
     else:
         # Select which (exponential/quadratic) curves have less error on the fitting
         exp_error = error_f(x, y, exponential)
@@ -365,41 +364,37 @@ def tend_curve(x, y, func='exp', column=None):
             opt, pcov = curve_fit(quadratic, x, y, p0=(1., 1.e-5, 1.), maxfev=20000)
             a, k, b = opt
 
-            opt_fs = int(np.rint(inv_quadratic(300, a, k, b)))
+            opt_fs = int(np.rint(inv_quadratic(wt_threshold, a, k, b)))
             x2, y2 = plot_curve(x, quadratic, a, k, b, opt_fs, True)
             print('quadratic better')
         elif quad_error > exp_error and power_error > exp_error:
             opt, pcov = curve_fit(exponential, x, y, p0=(1., 1.e-5, 1.), maxfev=20000)
             a, k, b = opt
 
-            opt_fs = int(np.rint(inv_exponential(300, a, k, b)))
+            opt_fs = int(np.rint(inv_exponential(wt_threshold, a, k, b)))
             x2, y2 = plot_curve(x, exponential, a, k, b, opt_fs, False)
             print('exponential better')
-        elif quad_error > power_error and exp_error > power_error:
+        # elif quad_error > power_error and exp_error > power_error:
+        else:
             opt, pcov = curve_fit(power, x, y, p0=(1., 1.e-5, 1.), maxfev=20000)
             a, k, b = opt
 
             x2, y2 = plot_curve(x, power, a, k, b, False)
-            opt_fs = int(np.rint(inv_power(300, a, k, b)))
+            opt_fs = int(np.rint(inv_power(wt_threshold, a, k, b)))
             print('power better')
+
     if column is not None:
         print('for: ' + str(column) + ' fleet size of: ' + str(opt_fs))
 
     return x2, y2, opt_fs
 
-    # fig, ax = plt.subplots()
-    # ax.plot(x2, y2, color='r', label='Fit. func: $f(x) = %.3f e^{%.9f x} %+.3f$' % (a, k, b))
-    # # ax.plot(x2, y2, color='r', label='Fit. func: $f(x) = %.9f x^2 + %.3f x + %+.3f$' % (a, k, b))
-    # ax.plot(x, y, 'bo', label='data with noise')
-    # ax.legend(loc='best')
-    # plt.title('Distribution of trips in study area')
-    # plt.xlabel('trip length (in seconds)')
-    # plt.ylabel('count (normalized)')
-    # plt.show()
 
-
-def df_update(threshold_path, av_share, wt, area):
+def df_update(opt_fs_path, av_share, wt, area):
     def save_value(df, area, av_share, wt):
+        if df.at[area, av_share] is not None:
+            return df
+        elif df.at[area, 1] is not None:
+            return df
         try:
             # Save actual simulation value in df
             df.at[area, av_share] = wt
@@ -415,8 +410,11 @@ def df_update(threshold_path, av_share, wt, area):
             df.at[area, av_share] = int(wt)
         return df
 
-    if os.path.isfile(threshold_path):
-        df = pd.read_csv(threshold_path, sep=",", index_col='study_area')
+    if os.path.isfile(opt_fs_path):
+        try:
+            df = pd.read_csv(opt_fs_path, sep=",", index_col='study_area')
+        except:
+            df = pd.read_csv(opt_fs_path, sep=",", index_col='area')
     else:
         df = pd.DataFrame(data=None)
 
@@ -427,10 +425,10 @@ def df_update(threshold_path, av_share, wt, area):
             df = save_value(df, area, av_share[i], wt[i])
 
     # Finally save df back
-    df.to_csv(threshold_path, sep=",", index=True, index_label='study_area')
+    df.to_csv(opt_fs_path, sep=",", index=True, index_label='study_area')
 
 
-def plot_fc(area_path, plot_path, threshold_path, area, fit_func='exp'):
+def plot_fc(area_path, plot_path, opt_fs_path, area, fit_func='exp'):
     print(datetime.datetime.now(), 'Creating plot, fitting curve with output waiting time average values ...')
     area = ntpath.split(area_path)[1]
     study_area_path = ntpath.split(area_path)[0]
@@ -442,7 +440,8 @@ def plot_fc(area_path, plot_path, threshold_path, area, fit_func='exp'):
     df = df.sort_index(ascending=True)
 
     # style
-    plt.figure(figsize=(15, 8))
+    # plt.figure(figsize=(17, 8))
+    plt.figure(figsize=(5, 3.5))
     plt.rcParams.update({'font.size': 18})
     plt.style.use('seaborn-darkgrid')
 
@@ -451,6 +450,7 @@ def plot_fc(area_path, plot_path, threshold_path, area, fit_func='exp'):
 
     # multiple line plot
     num = 0
+    wt_threshold = 5
     for column in df:
         # fit curve out of simulation results
         y = df[column]
@@ -468,11 +468,14 @@ def plot_fc(area_path, plot_path, threshold_path, area, fit_func='exp'):
                     y = y.drop(labels=[ix])
             x = y.index
 
+        # This is for y axis to appear in minutes instead of seconds
+        y = y/60
+
         # xx, yy, opt_fs = tend_curve(df, column)
-        xx, yy, opt_fs = tend_curve(x, y, fit_func, column)
+        xx, yy, opt_fs = tend_curve(x, y, fit_func, wt_threshold, column)
 
         # Save opt fs value for 300s waiting time in dataframe
-        df_update(threshold_path, column, [opt_fs], area)
+        # df_update(opt_fs_path, column, [opt_fs], area)
 
         plt.scatter(x, y, color=palette(num), label=column)
         plt.plot(xx, yy, color=palette(num), linestyle='dashed')
@@ -480,26 +483,31 @@ def plot_fc(area_path, plot_path, threshold_path, area, fit_func='exp'):
         if column == '1.0':
             thres_coord = max(x)
 
-    # Add legend
-    plt.legend(loc=0, ncol=1, prop={'size': 18}, frameon=True, title='AV share value:')
-
     # Define axis
     left, right = plt.xlim()
     # bottom, top = plt.ylim()
     ax = plt.axes()
-    ax.set_ylim(125, 600)
+    ax.set_ylim(wt_threshold * 0.4, wt_threshold * 2)
     ax.set_xlim(left, right)
 
+    # Define y-axis ticks
+    plt.yticks([3,5,7,9], ['3','5','7','9'])
+
     # Add hline at wt 300 s
-    plt.hlines(y=300, xmin=left, xmax=right, colors='r', linestyles='dashdot', zorder=100, label='Threshold')
-    plt.text(thres_coord, 310, 'Threshold ', ha='right', va='center', fontsize=14, color='r')
+    plt.hlines(y=wt_threshold, xmin=left, xmax=right, colors='r', linestyles='dashdot', zorder=100, label='Threshold')
+    # plt.text(thres_coord, wt_threshold + (wt_threshold - wt_threshold*0.4)*(1/18), 'Threshold ', ha='right', va='center', fontsize=14, color='r')
     # plt.gca().yaxis.set_major_formatter(ticker.FuncFormatter(formatter))
+
+    # Add legend
+    # plt.legend(ncol=1, frameon=True, title='AV share value:', loc='center left', bbox_to_anchor=(1, 0.5))
+    # plt.legend(loc=0, ncol=1, prop={'size': 18}, frameon=True, title='AV share value:')
 
     # Add titles
     # plt.title('AV simulation results for: ' + str(area) + ' (10pct swiss census)', fontsize=16, fontweight=0,
     #           color='orange')
-    plt.xlabel("AVs Fleet Size", fontsize=16)
-    plt.ylabel("Waiting Time (s)", fontsize=16)
+    # plt.xlabel("AVs Fleet Size")
+    # plt.ylabel("Waiting Time [min]")
+    plt.tight_layout()
 
     # plt.savefig(str(area_path) + '/simulations/' + str(df_name) + '.png')
 
@@ -508,33 +516,36 @@ def plot_fc(area_path, plot_path, threshold_path, area, fit_func='exp'):
     # plt.savefig(plot_path)
     save_plot(plt, plot_path, area)
 
-def plot_sim_results(study_area_dir, plot_path, fit_func):
-    study_area_list = list(os.walk(study_area_dir))[0][1]
-    # study_area_list = ['bern']
+def plot_sim_results(study_area_dir, plot_path, fit_func, area=None):
+    if area:
+        study_area_list = [area]
+    else:
+        study_area_list = list(os.walk(study_area_dir))[0][1]
 
     for area in study_area_list:
-        if area == 'test_area':
+        if area in ['test_area', 'baden', 'interlaken', 'geneve', 'basel', 'winterthur']:
             continue
         area_path = str(study_area_dir) + '/' + str(area)
         plot_fc(area_path,
                 plot_path,
+                # 'C:/Users/Ion/TFM/data/plots/final',
                 str(plot_path) + '/' + 'sim_opt_fs.csv',
                 area,
                 fit_func=fit_func)  # fit_func = ['exp', 'quadratic', 'two_points', 'power' (a^(bx+c)), 'best' (better[exp,quadratic,power]) ]
 
     # Normalize output opt fs values and create a new csv
-    sim_df_N = pd.read_csv(str(plot_path) + '/' + 'sim_opt_fs.csv', sep=",", index_col='area')
-    attr_df = pd.read_csv(str(study_area_dir) + '/' + 'attribute_table_AVG_T.csv', sep=",", index_col='study_area')
-    for area in sim_df_N.index:
-        carpt_users = int(attr_df.loc[area, 'CarPt_users'])
-        for av_share in sim_df_N.columns:
-            fs = int(sim_df_N.loc[area, av_share])
-            norm_value = fs / carpt_users
-
-            sim_df_N.at[area, av_share] = norm_value
-
-    sim_df_N = sim_df_N.sort_values(by=['1.0'], ascending=False)
-    sim_df_N.to_csv(str(plot_path) + '/sim_opt_fs_norm.csv', sep=",", index=True, index_label='area')
+    # sim_df_N = pd.read_csv(str(plot_path) + '/' + 'sim_opt_fs.csv', sep=",", index_col='area')
+    # attr_df = pd.read_csv(str(study_area_dir) + '/' + 'attribute_table_AVG_T.csv', sep=",", index_col='study_area')
+    # for area in sim_df_N.index:
+    #     carpt_users = int(attr_df.loc[area, 'CarPt_users'])
+    #     for av_share in sim_df_N.columns:
+    #         fs = int(sim_df_N.loc[area, av_share])
+    #         norm_value = fs / carpt_users
+    #
+    #         sim_df_N.at[area, av_share] = norm_value
+    #
+    # sim_df_N = sim_df_N.sort_values(by=['1.0'], ascending=False)
+    # sim_df_N.to_csv(str(plot_path) + '/sim_opt_fs_norm.csv', sep=",", index=True, index_label='area')
 
 # Parsing command line arguments
 # parser = argparse.ArgumentParser(description='Cut and analyse a graph for a certain input area.')
@@ -714,33 +725,26 @@ def qqplot(x, y, min, max, **kwargs):
         plt.plot(xx, yy, linestyle='dashed', **kwargs)
 
 
-def qqplot2(x, y, left, right, down, up, param=None, **kwargs):
-    # print(x, y, left, right, down, up, param)
+def qqplot2(x, y, left, right, down, up, param, area_type=None, **kwargs):
+    # print(x, y, left, right, down, up, param, area_type)
     if min(left.iloc[0], down.iloc[0]) < 0:
         low = min(left.iloc[0], down.iloc[0]) * 1.2
     else:
         low = min(left.iloc[0], down.iloc[0]) * 0.8
     high = max(right.iloc[0], up.iloc[0]) * 1.2
-    # max(parf.iloc[0], up.iloc[0])
-    # if parameter == 'fleet size':
-    #     baxes = brokenaxes(xlims=((low, 6500), (16000, 22000)), ylims=((low, 6500), (16000, 22000)), hspace=.05)
-    # else:
-    #     baxes = None
-    # left = min.iloc[0] - (0.1 * (max.iloc[0] - min.iloc[0]))
-    # right = max.iloc[0] + (0.1 * (max.iloc[0] - min.iloc[0]))
-    #
-    # top = up.iloc[0] + (0.1 * (up.iloc[0] - down.iloc[0]))
-    # bottom = down.iloc[0] - (0.1 * (up.iloc[0] - down.iloc[0]))
 
     plt.xlim(low, high)
     plt.ylim(low, high)
-    # if baxes is not None:
-    #     plt.scatter(x, y, ax=baxes, **kwargs)
-    # else:
+
     plt.scatter(x, y, **kwargs)
+    if param.iloc[0] == 'fleet_size':
+        plt.yscale('log')
+        plt.xscale('log')
 
     xx = np.linspace(low, high, 100)
     plt.plot(xx, xx, linestyle='dashed', c='r', linewidth=0.6)
+    plt.plot(xx, xx*1.2, linestyle='dashed', c='g', linewidth=0.8)
+    plt.plot(xx, xx*0.8, linestyle='dashed', c='g', linewidth=0.8, label='20% error')
 
 
 def plot_fs_attr(full_df, attr_list, plot_path):
@@ -804,23 +808,36 @@ def plot_pred_real(full_df, pred_list, plot_path):
     data = []
     for real, pred, parameter in pred_list:
         for area in full_df.index:
-            new_row = (area,
-                       full_df.at[area, 'area_type'],
-                       full_df.at[area, real],
-                       full_df.at[area, pred],
-                       parameter,
-                       min(full_df[real]),
-                       max(full_df[real]),
-                       min(full_df[pred]),
-                       max(full_df[pred]))
-            data.append(new_row)
+            if parameter == 'fleet_size':
+                for avshare in ['0.05', '0.1', '0.2', '0.4', '0.6', '0.8', '1.0']:
+                    new_row = (area,
+                               full_df.at[area, 'area_type'],
+                               full_df.at[area, 'real_' + avshare],
+                               full_df.at[area, 'pred_' + avshare],
+                               parameter,
+                               min(full_df['real_' + avshare]),
+                               max(full_df['real_' + avshare]),
+                               min(full_df['pred_' + avshare]),
+                               max(full_df['pred_' + avshare]))
+                    data.append(new_row)
+            else:
+                new_row = (area,
+                           full_df.at[area, 'area_type'],
+                           full_df.at[area, real],
+                           full_df.at[area, pred],
+                           parameter,
+                           min(full_df[real]),
+                           max(full_df[real]),
+                           min(full_df[pred]),
+                           max(full_df[pred]))
+                data.append(new_row)
             # print(new_row)
     df = pd.DataFrame(data, columns=['study_area', 'area_type', 'real', 'pred', 'parameter', 'left', 'right', 'down', 'up'])
     # print(df.columns)
     # Plot map
     grid = sb.FacetGrid(df, hue="area_type", col_wrap=2, col="parameter", height=4, sharex=False, sharey=False)
     # grid = grid.map(qqplot2, 'pred', 'real', 'left', 'right', 'down', 'up')
-    grid = grid.map(qqplot2, 'parameter', 'pred', 'real', 'left', 'right', 'down', 'up')
+    grid = grid.map(qqplot2, 'area_type', 'pred', 'real', 'left', 'right', 'down', 'up', 'parameter')
     # grid = grid.map(corr, "pred", "real")
     # grid = grid.map(corr, "pred", "real", corre=True)
     grid = grid.add_legend(fontsize=14, title='Area type', frameon=True)
@@ -828,10 +845,11 @@ def plot_pred_real(full_df, pred_list, plot_path):
     method_path = ntpath.split(plot_path)[0]
     try_f = ntpath.split(plot_path)[1]
 
-    grid.savefig(str(method_path) + '/' + str(try_f))
+    # grid.savefig(str(method_path) + '/' + str(try_f))
 
     # save_plot(grid, method_path, try_f)
-    save_plot(grid, plot_path, 'pred_real')
+    # save_plot(grid, plot_path, 'pred_real')
+    save_plot(grid, 'C:/Users/Ion/TFM/data/plots/final', 'pred_real')
 
 
 def regression_plot(study_area_dir, plot_path, sim_path, reg_plots):
@@ -842,22 +860,23 @@ def regression_plot(study_area_dir, plot_path, sim_path, reg_plots):
     df_lr = pd.read_csv(str(sim_path) + '/linear_regression.csv', sep=",", index_col='area')
 
     df_sim_N = pd.read_csv(str(sim_path) + '/sim_opt_fs_norm.csv', sep=",", index_col='area')
-    df_sim = pd.read_csv(str(sim_path) + '/sim_opt_fs.csv', sep=",", index_col='area')
+    df_sim = pd.read_csv(str(sim_path) + '/sim_opt_fs.csv', sep=",", index_col='study_area')
     df_sim_N.columns = pd.MultiIndex.from_tuples([('norm', c) for c in df_sim_N.columns])
     df_sim.columns = pd.MultiIndex.from_tuples([('fs', c) for c in df_sim.columns])
 
     df_reg = pd.read_csv(str(plot_path) + '/regression_ab.csv', sep=",", index_col='study_area')
+    df_fserror = pd.read_csv(str(plot_path) + '/fs_error.csv', sep=",", index_col='study_area')
 
     df = pd.read_csv(str(study_area_dir) + '/attribute_table_AVG_T.csv', sep=",", index_col='study_area')
 
-    full_df = pd.concat([df, df_sim_N, df_sim, df_lr, df_reg], axis=1, sort=False)
+    full_df = pd.concat([df, df_sim_N, df_sim, df_lr, df_reg, df_fserror], axis=1, sort=False)
     full_df = full_df.sort_values(by=['network_distance'], ascending=False)
 
     # df_plots = [['real_a', 'pred_a']]
     pred_list = [['real_a', 'pred_a', 'a'],
                 ['real_b', 'pred_b', 'b'],
                 ['real_nfs', 'pred_nfs', 'normalized_fs'],
-                ['real_fs', 'pred_fs', 'fleet size']]
+                ['real_fs', 'pred_fs', 'fleet_size']]
 
     plot_pred_real(full_df, pred_list, plot_path)
 
@@ -866,7 +885,9 @@ def fs_error_plot(data, result_path, area):
     pred, real, error = data
     x = [5, 10, 20, 40, 60, 80, 100]
 
-    fig, ax = plt.subplots()
+    # fig, ax = plt.subplots()
+    fig, ax = plt.subplots(figsize=(6, 4))
+    plt.rcParams.update({'font.size': 18})
 
     z = np.polyfit(x, pred, 1)
     p = np.poly1d(z)
@@ -878,16 +899,18 @@ def fs_error_plot(data, result_path, area):
     ax.plot(x, p(x), color='g', linestyle='dashed')
     ax.scatter(x, real, color='g', label='Real fs')
 
-    ax.set_xlabel("Car / PT users who switch to AV (%)", fontsize=12)
-    ax.set_ylabel("Fleet Size", fontsize=12)
+    # ax.set_xlabel("Car / PT users who switch to AV (%)")
+    # ax.set_ylabel("Fleet Size")
 
     ax2 = ax.twinx()
     ax2.plot(x, error, color="red", marker="o", label='Error')
-    ax2.set_ylabel("Error [ abs (1 - (pred / real) ) ]", fontsize=12)
+    # ax2.set_ylabel("Error [ abs (1 - (pred / real) ) ]", fontsize=12)
+    # ax2.set_ylabel("Error")
 
     # Add legend
-    fig.legend(loc='best', ncol=1, prop={'size': 7}, frameon=True)
-    plt.title('Predicted fs comparison for: ' + str(area), fontsize=12, fontweight=0)
+    # fig.legend(loc='best', ncol=1, prop={'size': 7}, frameon=True)
+    # plt.title('Predicted fs comparison for: ' + str(area), fontsize=12, fontweight=0)
+    plt.tight_layout()
 
     # Check if out_path exists or create it
     if not os.path.exists(str(result_path) + '/areas'):
@@ -925,17 +948,18 @@ def CarPtusers_fs():
 # -----------------------------------------------------------------------------
 
 # This creates plot for each area (wt vs fs) and opt fs csv (fs, and fs_N)
-fit_func = 'two_points'     # ['exp', 'power', 'best', 'two_points']
+fit_func = 'best'     # ['exp', 'power', 'best', 'two_points']
 
 # plot_sim_results(study_area_dir='C:/Users/Ion/TFM/data/study_areas',
 #                  plot_path='C:/Users/Ion/TFM/data/plots/sim_plots/wt_fs/' + str(fit_func),
-#                  fit_func=fit_func)
+#                  fit_func=fit_func,
+#                  area=None)
 # #
 # # # This creates for a defined fs or fs_N csv, the corresponding plot fs vs avshare value, with a regression (linear, exp)
-plot_fs_avs_setup(study_area_dir='C:/Users/Ion/TFM/data/study_areas',
-                  plot_path='C:/Users/Ion/TFM/data/plots/sim_plots',
-                  regression='linear',       # ['linear' (saves a b as attributes), 'exp', 'power', 'quadratic', 'best']
-                  fit=fit_func)              # ['exp', 'power', 'best', 'two_points'] any already computed fit foldername of wt/fs
+# plot_fs_avs_setup(study_area_dir='C:/Users/Ion/TFM/data/study_areas',
+#                   plot_path='C:/Users/Ion/TFM/data/plots/sim_plots',
+#                   regression='linear',       # ['linear' (saves a b as attributes), 'exp', 'power', 'quadratic', 'best']
+#                   fit=fit_func)              # ['exp', 'power', 'best', 'two_points'] any already computed fit foldername of wt/fs
 
 
 # correlation_matrix(study_area_dir='C:/Users/Ion/TFM/data/study_areas',
@@ -953,7 +977,8 @@ plot_fs_avs_setup(study_area_dir='C:/Users/Ion/TFM/data/study_areas',
 df_plots = [
 #     [['network_distance', 'efficiency', 'node_straightness', 'eccentricity', 'avg_shortest_path_duration', 'area_type'], 'random'],
 #     [['network_distance', 'node_d_km', 'edge_d_km', 'intersection_d_km', 'street_d_km', 'area_type'], 'densities'],
-    [['network_distance', 'node_d_km', 'street_d_km', 'area_type'], 'densities']
+    [['network_distance', 'node_d_km', 'street_d_km', 'area_type'], 'densities'],
+    [['CarPt_users', 'node_load_centrality', 'node_straightness', 'area_type'], 'other']
 #     [['network_distance', 'population', 'trips', 'area', 'circuity_avg', 'area_type'], 'dimensionless'],
 #     [['network_distance', 'avg_degree_connectivity', 'avg_edge_density', 'degree_centrality', 'avg_neighbor_degree', 'area_type'], 'degrees'],
 #     [['network_distance', 'clustering*', 'node_betweenness*', 'edge_betweenness', 'street_d_km', 'area_type'], 'dicts'],
@@ -966,10 +991,10 @@ df_plots = [
 #                df_plots=df_plots)
 
 
-# regression_plot(study_area_dir='C:/Users/Ion/TFM/data/study_areas',
-#                 plot_path='C:/Users/Ion/TFM/data/plots/regression/ols',
-#                 sim_path='C:/Users/Ion/TFM/data/plots/sim_plots/wt_fs/two_points',
-#                 reg_plots=[[['real_a', 'pred_a','real_b', 'pred_b', 'real_nfs', 'pred_nfs', 'real_fs', 'pred_fs'], 'reg_results']])
+regression_plot(study_area_dir='C:/Users/Ion/TFM/data/study_areas',
+                plot_path='C:/Users/Ion/TFM/data/plots/regression/ols',
+                sim_path='C:/Users/Ion/TFM/data/plots/sim_plots/wt_fs/two_points',
+                reg_plots=[[['real_a', 'pred_a','real_b', 'pred_b', 'real_nfs', 'pred_nfs', 'real_fs', 'pred_fs'], 'reg_results']])
 
 # plot predefined attributes:
 # attr_list = ['node_d_km', 'edge_d_km', 'CarPt_users', 'trips',
