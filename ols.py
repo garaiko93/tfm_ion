@@ -24,7 +24,7 @@ def data_setup(study_area_dir, sim_path, result_path, regression_func, predict_o
     df_lr = pd.read_csv(str(sim_path) + '/linear_regression.csv', sep=",", index_col='area')
 
     df_sim_N = pd.read_csv(str(sim_path) + '/sim_opt_fs_norm.csv', sep=",", index_col='area')
-    df_sim = pd.read_csv(str(sim_path) + '/sim_opt_fs.csv', sep=",", index_col='area')
+    df_sim = pd.read_csv(str(sim_path) + '/sim_opt_fs.csv', sep=",", index_col='study_area')
     df_sim_N.columns = pd.MultiIndex.from_tuples([('norm', c) for c in df_sim_N.columns])
     df_sim.columns = pd.MultiIndex.from_tuples([('fs', c) for c in df_sim.columns])
 
@@ -127,31 +127,31 @@ def OLS_regression(X, y, predict_on):
 # -----------------------------------------------------------------------------
 # OLS: ORDINARY LEAST SQUARES
 # -----------------------------------------------------------------------------
-def linear_regression(X, y, predict_on):
-    var_name = predict_on[1]
-
-    reg = LinearRegression().fit(X, y)
-
-    # print(results.summary(xname=var_name))
-    # print('Parameters: ', results.params)
-    # print('R2: ', results.rsquared)
-
-    return results.params
+# def linear_regression(X, y, predict_on):
+#     var_name = predict_on[1]
+#
+#     reg = LinearRegression().fit(X, y)
+#
+#     # print(results.summary(xname=var_name))
+#     # print('Parameters: ', results.params)
+#     # print('R2: ', results.rsquared)
+#
+#     return results.params
 
 # -----------------------------------------------------------------------------
 # OLS: ORDINARY LEAST SQUARES
 # -----------------------------------------------------------------------------
-def ridge_regression(X, y, predict_on):
-    var_name = predict_on[1]
-
-    model = sm.OLS(y, X)
-    results = model.fit()
-
-    # print(results.summary(xname=var_name))
-    # print('Parameters: ', results.params)
-    # print('R2: ', results.rsquared)
-
-    return results.params
+# def ridge_regression(X, y, predict_on):
+#     var_name = predict_on[1]
+#
+#     model = sm.OLS(y, X)
+#     results = model.fit()
+#
+#     # print(results.summary(xname=var_name))
+#     # print('Parameters: ', results.params)
+#     # print('R2: ', results.rsquared)
+#
+#     return results.params
 
 
 def test_func(test_data, predict_on, params):
@@ -354,7 +354,7 @@ predict_on = [
 
 data_setup(study_area_dir='C:/Users/Ion/TFM/data/study_areas',
            sim_path='C:/Users/Ion/TFM/data/plots/sim_plots/wt_fs/two_points',
-           result_path='C:/Users/Ion/TFM/data/plots/regression/ols/try9',
+           result_path='C:/Users/Ion/TFM/data/plots/regression/ols/try12',
            regression_func=OLS_regression,
            predict_on=predict_on)
 

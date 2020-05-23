@@ -27,7 +27,7 @@ def prepare_df(study_area_dir, sim_path, out_path, pred_var, drop_attr=None, sel
     df_lr = pd.read_csv(str(sim_path) + '/linear_regression.csv', sep=",", index_col='area')
 
     df_sim_N = pd.read_csv(str(sim_path) + '/sim_opt_fs_norm.csv', sep=",", index_col='area')
-    df_sim = pd.read_csv(str(sim_path) + '/sim_opt_fs.csv', sep=",", index_col='area')
+    df_sim = pd.read_csv(str(sim_path) + '/sim_opt_fs.csv', sep=",", index_col='study_area')
     df_sim_N.columns = pd.MultiIndex.from_tuples([('norm', c) for c in df_sim_N.columns])
     df_sim.columns = pd.MultiIndex.from_tuples([('fs', c) for c in df_sim.columns])
 
@@ -178,17 +178,20 @@ for i in range(len(variables)):
         comparison_df = comparison_df.append(s)
 
 # Plot i
-result = comparison_df.transpose()
+# result = comparison_df.transpose().sort_values(by='norm', ascending=False) * 100
+result = comparison_df.transpose().sort_values(by='fs', ascending=False) * 100
 # fig, axs = plt.subplots(nrows=2, ncols=1, figsize=(18,8))
-result.plot(y=['norm', 'fs'], kind="bar", figsize=(18,8))
+result.plot(y=['norm', 'fs'], kind="bar", figsize=(18, 8), label=['Normalized fleet size', 'Full fleet size'])
+# plt.figure(figsize=(38, 24))
+plt.rcParams.update({'font.size': 16})
 # plt.xlabel('Attribute')
-plt.ylabel('Attributes Importance')
+plt.ylabel('Attributes Importance [%]')
+plt.xticks(rotation=45, ha='right')
 plt.tight_layout()
 
 
-
 # ----------------------------------------------------------------------------------------------
-# PLOT ii: removing most important variable
+# PLOT ii: removing most/less important variable
 # ----------------------------------------------------------------------------------------------
 most_imp = []
 out_path = 'C:/Users/Ion/TFM/data/plots/regression/randomForest'
@@ -232,7 +235,8 @@ for i in range(len(df_attr.columns)):
         fi_avg[col] = fi_df[col].mean()
 
     # Select max attribute and add to list to exclude it in following iteration
-    max_attr = list({k: v for k, v in sorted(fi_avg.items(), reverse=True, key=lambda item: item[1])})[0]
+    # max_attr = list({k: v for k, v in sorted(fi_avg.items(), reverse=True, key=lambda item: item[1])})[0]
+    max_attr = list({k: v for k, v in sorted(fi_avg.items(), reverse=True, key=lambda item: item[1])})[-1]
     most_imp.append(max_attr)
 
     fi_avg['importance'] = fi_avg[max_attr]
@@ -289,18 +293,25 @@ comparison_df.to_csv(str(out_path) + '/comparison_df.csv', sep=",", index=True, 
 area_pred_df.to_csv(str(out_path) + '/area_pred_df.csv', sep=",")
 pred_data_df.to_csv(str(out_path) + '/pred_data_df.csv', sep=",", index=True, index_label='study_area')
 
+comparison_df = pd.read_csv(str(out_path) + '/comparison_df.csv', sep=",", index_col='max_attr')
+area_pred_df = pd.read_csv(str(out_path) + '/area_pred_df.csv', sep=",")
+pred_data_df = pd.read_csv(str(out_path) + '/pred_data_df.csv', sep=",", index_col='study_area')
+
 
 
 # Plot ii
 def plot_ii():
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(figsize=(18, 8))
 
-    ax.bar(comparison_df.index, comparison_df['importance'], label='Attribute importance')
-    ax.set_ylabel("Attribute importance / Prediction Avg Error (%)", fontsize=12)
+    ax.bar(comparison_df.index, comparison_df['importance'], label='Attribute importance at the moment of removing')
+    ax.set_ylabel("Attribute importance / Prediction Avg Error", fontsize=12)
 
     ax.plot(comparison_df.index, comparison_df['avg_error'], color='r', label='Average Error')
 
-    plt.xticks(rotation=90)
+    ax.tick_params(labelright=True)
+    # plt.xticks(rotation=90)
+    plt.xticks(rotation=45, ha='right')
+
 
     # ax2 = ax.twinx()
     # ax2.invert_yaxis()
@@ -356,17 +367,19 @@ def plot_ii():
     # ax2.set_ylabel("Best prediction by area type (% error)", fontsize=12)
 
     # Add legend
-    fig.legend(loc='best', ncol=1, prop={'size': 12}, frameon=True)
+    fig.legend(loc='upper left', ncol=1, prop={'size': 12}, frameon=True, bbox_to_anchor=(0.057, 0.97))
 
     plt.tight_layout()
-    plt.title('Random Forest prediction by removing most important attribute', fontsize=12, fontweight=0)
+    # plt.title('Random Forest prediction by removing most important attribute', fontsize=12, fontweight=0)
     return ax
 
 # ----------------------------------------------------------------------------------------------
 # Plot ii'
 def plot_iip():
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(figsize=(18, 8))
 
+    label_check = [0, 0, 0, 0]
+    label_check = [0, 0, 0, 0]
     for area in pred_data_df.index:
         area_df = pred_data_df.loc[area]
         area_type = area_df.loc['area_type']
@@ -378,35 +391,93 @@ def plot_iip():
         elif area_type == 'mountain':
             color = 'g'
 
-        ax.plot(comparison_df.index, area_pred_df[area_pred_df['study_area'] == area]['error_nfs'], color=color)
-        ax.plot(pred_data_df.loc[area, 'best_pred_ix'],
-                pred_data_df.loc[area, 'best_pred'],
-                'o',
-                color=color)
+        # Plot dot with best prediction of area
+        if label_check[3] == 0:
+            ax.plot(pred_data_df.loc[area, 'best_pred_ix'], pred_data_df.loc[area, 'best_pred'], 'o', color=color,
+                        zorder=10)
+            ax.plot(pred_data_df.loc[area, 'best_pred_ix'], pred_data_df.loc[area, 'best_pred'], 'o', color='k',
+                        label='Best prediction', zorder=0)
+            label_check[3] += 1
+        else:
+            ax.plot(pred_data_df.loc[area, 'best_pred_ix'], pred_data_df.loc[area, 'best_pred'], 'o', color=color)
+
+        # Plot transition of predicted errors for each area
+        if color == 'm':
+            if label_check[0] == 0:
+                ax.plot(comparison_df.index, area_pred_df[area_pred_df['study_area'] == area]['error_nfs'],
+                            color=color, label='Rural Area')
+                label_check[0] += 1
+            else:
+                ax.plot(comparison_df.index, area_pred_df[area_pred_df['study_area'] == area]['error_nfs'],
+                            color=color)
+        elif color == 'b':
+            if label_check[1] == 0:
+                ax.plot(comparison_df.index, area_pred_df[area_pred_df['study_area'] == area]['error_nfs'],
+                            color=color, label='Urban Area')
+                label_check[1] += 1
+            else:
+                ax.plot(comparison_df.index, area_pred_df[area_pred_df['study_area'] == area]['error_nfs'],
+                            color=color)
+        elif color == 'g':
+            if label_check[2] == 0:
+                ax.plot(comparison_df.index, area_pred_df[area_pred_df['study_area'] == area]['error_nfs'],
+                            color=color, label='Mountain Area')
+                label_check[2] += 1
+            else:
+                ax.plot(comparison_df.index, area_pred_df[area_pred_df['study_area'] == area]['error_nfs'],
+                            color=color)
+
+
+    # for area in pred_data_df.index:
+    #     area_df = pred_data_df.loc[area]
+    #     area_type = area_df.loc['area_type']
+    #     ix = area_df.loc['best_pred_ix']
+    #     if area_type == 'rural':
+    #         color = 'm'
+    #     elif area_type == 'urban':
+    #         color = 'b'
+    #     elif area_type == 'mountain':
+    #         color = 'g'
+    #
+    #     ax.plot(comparison_df.index, area_pred_df[area_pred_df['study_area'] == area]['error_nfs'], color=color)
+    #     ax.plot(pred_data_df.loc[area, 'best_pred_ix'],
+    #             pred_data_df.loc[area, 'best_pred'],
+    #             'o',
+    #             color=color)
         # ax.vlines(pred_data_df.loc[area, 'best_pred_ix'], 0, pred_data_df.loc[area, 'best_pred'], colors=color, linewidth=0.8, linestyles='dashdot')
 
     plt.xticks(rotation=90)
-    ax.set_ylabel("Prediction error (%)", fontsize=12)
-
+    ax.set_ylabel("Error [1=100%]", fontsize=12)
+    ax.tick_params(labelright=True)
+    plt.xticks(rotation=45, ha='right')
     # Add legend
-    fig.legend(loc='best', ncol=1, prop={'size': 12}, frameon=True)
+    fig.legend(loc='upper left', ncol=1, prop={'size': 12}, frameon=True, bbox_to_anchor=(0.1, 0.8))
 
-    plt.tight_layout()
     plt.title('Random Forest prediction by removing most important attribute', fontsize=12, fontweight=0)
+    plt.tight_layout()
     return ax
 
 # ----------------------------------------------------------------------------------------------
 # Plot i+ii
 
+# fig, axs = plt.subplots(nrows=2, ncols=1, figsize=(18,8))
 fig, axs = plt.subplots(nrows=2, ncols=1, figsize=(18,8))
-i,j=[1,0]
+
+plt.rcParams.update({'font.size': 14})
+i, j = [1, 0]
 
 # Top plot
-axs[i].bar(comparison_df.index, comparison_df['importance'], label='Attribute importance')
-# axs[i].set_ylabel("Attribute importance / Prediction Avg Error (%)", fontsize=12)
+axs[i].bar(comparison_df.index, comparison_df['importance'], label='Attribute importance at the moment of removing')
+axs[i].set_ylabel("[%]", fontsize=12)
 
 axs[i].plot(comparison_df.index, comparison_df['avg_error'], color='r', label='Average Error')
-plt.xticks(rotation=90)
+axs[i].plot(comparison_df.index[comparison_df['avg_error'] == min(comparison_df['avg_error'])],
+            min(comparison_df['avg_error']), 'o', color='r')
+print(min(comparison_df['avg_error']))
+# axs[j].plot(pred_data_df.loc[area, 'best_pred_ix'], pred_data_df.loc[area, 'best_pred'], 'o', color=color)
+
+# plt.xticks(rotation=90)
+plt.xticks(rotation=45, ha='right')
 
 # Add legend
 axs[i].legend(loc='best', ncol=1, prop={'size': 12}, frameon=True)
@@ -460,8 +531,8 @@ axs[j].tick_params(axis='x',          # changes apply to the x-axis
                    bottom=True,      # ticks along the bottom edge are off
                    top=False,         # ticks along the top edge are off
                    labelbottom=False) # labels along the bottom edge are off
-axs[j].set_ylabel("Prediction error by areas (1=100%)", fontsize=12)
-
+axs[j].set_ylabel("Error [1=100%]", fontsize=12)
+axs[j].set_ylim(0, 1)
 # Add legend
 axs[j].legend(loc='upper right', ncol=1, prop={'size': 12}, frameon=True)
 
@@ -472,8 +543,8 @@ plt.show()
 # ----------------------------------------------------------------------------------------------
 # Plot iii
 
-import matplotlib.pyplot as plt
-from matplotlib.dates import date2num
+# import matplotlib.pyplot as plt
+# from matplotlib.dates import date2num
 
 x = [
     datetime.datetime(2011, 1, 4, 0, 0),
