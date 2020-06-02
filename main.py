@@ -51,7 +51,7 @@ print(datetime.datetime.now(), 'Main script begins ...')
 # population_parser_line(scenarios_dir)
 
 # population_parser_setup(r'C:/Users/Ion/TFM/data/scenarios')
-population_parser_setup(r'C:/Users/Ion/TFM/data/study_areas')
+# population_parser_setup(r'C:/Users/Ion/TFM/data/study_areas')
 
 # -------------------------------------------------------------------------------------------------------------
 # CREATE AND ANALYSE EVERY STUDY AREA
@@ -72,9 +72,9 @@ population_parser_setup(r'C:/Users/Ion/TFM/data/study_areas')
 # args = parser.parse_args()
 # analysis_setup(args.study_areas, args.network_graphs, args.area)
 
-analysis_setup('C:/Users/Ion/TFM/data/study_areas',
-               'C:/Users/Ion/TFM/data/network_graphs',
-               None)
+# analysis_setup('C:/Users/Ion/TFM/data/study_areas',
+#                'C:/Users/Ion/TFM/data/network_graphs',
+#                None)
 # analysis_setup("/cluster/home/gaion/TFM/data/study_areas",
 #                "/cluster/home/gaion/TFM/data/network_graphs",
 #                None)

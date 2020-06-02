@@ -200,7 +200,7 @@ def removeOutliers(data, thresholdStd = 3):
 # Implementation of violinboxplot
 def violinboxplot(data, x=None, y=None, labels=None, outliers=True,
                   title=None, showModes=True, showCounts=True,
-                  logPercentile=None, ax=None):
+                  logPercentile=None, ax=None, xtitle=None):
     from mpl_toolkits.axes_grid1 import make_axes_locatable
     from matplotlib.ticker import ScalarFormatter, NullFormatter
 
@@ -338,6 +338,8 @@ def violinboxplot(data, x=None, y=None, labels=None, outliers=True,
     if labels is not None:  # set labels
         ax.set_yticklabels(labels)
     plt.title(title) if logPercentile is None else plt.suptitle(title)
+    if xtitle:
+        plt.xlabel(xtitle)
     plt.tight_layout()
     sns.despine()
 

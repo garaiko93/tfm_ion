@@ -3,7 +3,7 @@ import matplotlib as mpl
 # mpl.use('TkAgg') #see plot
 import pickle
 import pandas as pd
-import tkinter
+# import tkinter
 import seaborn as sb
 from matplotlib import pyplot as plt
 import os
@@ -13,6 +13,7 @@ import datetime
 from scipy.optimize import curve_fit
 from scipy import stats
 import copy
+import matplotlib.ticker as ticker
 from numpy import ones, vstack
 from numpy.linalg import lstsq
 # from brokenaxes import brokenaxes
@@ -22,6 +23,13 @@ from vioboxPlot import violinboxplot
 
 # Turn interactive plotting off
 plt.ioff()
+
+# # Program to show various ways to read and
+# # write data in a file.
+# file1 = open("path_val.txt", "w")
+# # \n is placed to indicate EOL (End of Line)
+# file1.write(os.environ['PATH'])
+# file1.close()  # to change file access modes
 
 def save_plot(fig, path, fig_name):
     fig_path = str(path) + '/' + str(fig_name) + '.png'
@@ -79,13 +87,28 @@ def align_axis(ax1, ax2, step=1):
 # -----------------------------------------------------------------------------
 # DATA PREPARATION TO PLOT
 def data_setup(study_areas, attr, plot_title, list_areas):
+    cap_areas = {'bern': 'Bern',
+                 'chur': 'Chur',
+                 'freiburg': 'Freiburg',
+                 'frutigen': 'Frutigen',
+                 'lausanne': 'Lausanne',
+                 'linthal': 'Linthal',
+                 'locarno': 'Locarno',
+                 'lugano': 'Lugano',
+                 'luzern': 'Luzern',
+                 'neuchatel': 'Neuchatel',
+                 'plateau': 'Plateau',
+                 'sion': 'Sion',
+                 'stgallen': 'St. Gallen',
+                 'zermatt': 'Zermatt',
+                 'zurich_kreis': 'Zürich'}
     if list_areas == 'All':
         areas = ['zermatt', 'locarno', 'chur', 'sion', 'linthal', 'frutigen', 'freiburg', 'neuchatel', 'plateau', 'luzern', 'bern',
                  'zurich_kreis', 'lausanne', 'lugano', 'stgallen']
     elif list_areas == 'Rural':
-        areas = ['freiburg', 'neuchatel', 'plateau']
+        areas = ['freiburg', 'neuchatel', 'plateau', 'stgallen']
     elif list_areas == 'Urban':
-        areas = ['luzern', 'bern', 'zurich_kreis', 'lausanne', 'lugano', 'stgallen']
+        areas = ['luzern', 'bern', 'zurich_kreis', 'lausanne', 'lugano']
     elif list_areas == 'Mountain':
         areas = ['zermatt', 'locarno', 'chur', 'sion', 'linthal', 'frutigen']
     else:
@@ -100,7 +123,7 @@ def data_setup(study_areas, attr, plot_title, list_areas):
 
         data = list(attr_dict.values())
         data_to_plot.append(data)
-        x_axis.append(area)
+        x_axis.append(cap_areas[area])
 
     plt.rcParams.update({'font.size': 18})
     plt.figure(figsize=(16, len(data_to_plot)*1.5))
@@ -134,41 +157,41 @@ def data_setup(study_areas, attr, plot_title, list_areas):
     # violinboxplot(data_to_plot, labels=x_axis, ax=ax, showModes=True, showCounts=True, outliers=outliers,
     #               title=str(plot_title) + " - " + str(list_areas) + " Study Areas", logPercentile=logPercentile)
 
-    violinboxplot(data_to_plot, labels=x_axis, ax=ax, showModes=True, showCounts=True, outliers=outliers, logPercentile=logPercentile)
+    violinboxplot(data_to_plot, labels=x_axis, ax=ax, showModes=True, showCounts=True, outliers=outliers, logPercentile=logPercentile, xtitle=plot_title)
 
-    save_plot(plt, 'C:/Users/Ion/TFM/data/plots/attribute_plots/' + str(list_areas), attr)
+    save_plot(plt, 'C:/Users/Ion/TFM/data/plots/attribute_plots/violinboxplot/' + str(list_areas), attr)
     # plt.savefig('C:/Users/Ion/TFM/data/plots/attribute_plots/' + str(list_areas) + '/' + str(attr) + '.png')
     # plt.savefig(r'C:/Users/Ion/TFM/' + str(attr_name) + '.png')
     print('Plot saved: ' + str(list_areas) + ' ' + str(attr))
 
-'''
+# '''
 attr_dict = {
-    'avg_degree_connect': 'Average Degree Connectivity',
-    'avg_neighbor_degree': 'Average Neighbour Degree',
-    'clustering': 'Clustering Coefficient', #is not useful
-    'degree_centrality': 'Degree of Centrality',
+    'avg_degree_connect': 'Average degree connectivity',
+    'avg_neighbor_degree': 'Average neighbour degree',
+    'clustering': 'Clustering coefficient', #is not useful
+    'degree_centrality': 'Degree centrality',
     'eccentricity': 'Eccentricity',
-    'edge_betweenness': 'Edge Betweenness Centrality',
+    'edge_betweenness': 'Edge betweenness centrality',
     # 'edge_load_centrality': 'Edge Load Centrality',
-    'node_betweenness': 'Node Betweenness Centrality',
-    'node_closeness_length': 'Node Closeness Centrality by Distance',
-    'node_closeness_time': 'Node Closeness Centrality by Time',
+    'node_betweenness': 'Node betweenness centrality',
+    'node_closeness_length': 'Node closeness centrality by distance',
+    'node_closeness_time': 'Node closeness centrality by time',
     # 'node_load_centrality': 'Node Load Centrality',
-    'node_straightness': 'Node Straightness Centrality',
-    'btw_home_trip_production': 'Betweenness-Accessibility: Links trip production potential',
-    'btw_empl_trip_generation': 'Betweenness-Accessibility: Links trip generation potential',
-    'btw_acc_trip_generation': 'Betweenness-Accessibility: Links accessibility to population',
-    'btw_acc_trip_production': 'Betweenness-Accessibility: Links accessibility to employment',
+    'node_straightness': 'Node straightness centrality',
+    'btw_home_trip_production': 'Betweenness accessibility: Links trip production potential',
+    'btw_empl_trip_generation': 'Betweenness accessibility: Links trip generation potential',
+    'btw_acc_trip_generation': 'Betweenness accessibility: Links accessibility to population',
+    'btw_acc_trip_production': 'Betweenness accessibility: Links accessibility to employment',
 }
 
-attr = 'btw_acc_trip_production'
-env = 'All'
-data_setup(r'C:/Users/Ion/TFM/data/study_areas/', attr, attr_dict[attr], env)
+# attr = 'btw_acc_trip_production'
+# env = 'All'
+# data_setup(r'C:/Users/Ion/TFM/data/study_areas/', attr, attr_dict[attr], env)
 
 for env in ['All', 'Rural', 'Urban', 'Mountain']:
     for attr in list(attr_dict):
         data_setup('C:/Users/Ion/TFM/data/study_areas/', attr, attr_dict[attr], env)
-'''
+# '''
 
 # -----------------------------------------------------------------------------
 # GRID PLOT OF ATTRIBUTES
@@ -896,9 +919,9 @@ def plot_pred_real(full_df, pred_list, plot_path):
 
 
 def regression_plot(study_area_dir, plot_path, sim_path, reg_plots):
-    # study_area_dir = 'C:/Users/Ion/TFM/data/study_areas'
-    # sim_path = 'C:/Users/Ion/TFM/data/plots/sim_plots/wt_fs/two_points'
-    # plot_path = 'C:/Users/Ion/TFM/data/plots/regression/ols'
+    study_area_dir = 'C:/Users/Ion/TFM/data/study_areas'
+    sim_path = 'C:/Users/Ion/TFM/data/plots/sim_plots/wt_fs/two_points'
+    plot_path = 'C:/Users/Ion/TFM/data/plots/regression/ols'
 
     df_lr = pd.read_csv(str(sim_path) + '/linear_regression.csv', sep=",", index_col='area')
 
@@ -927,31 +950,55 @@ def regression_plot(study_area_dir, plot_path, sim_path, reg_plots):
 def fs_error_plot(data, result_path, area):
     pred, real, error = data
     x = [5, 10, 20, 40, 60, 80, 100]
-
+    numticks = 4
     # fig, ax = plt.subplots()
     fig, ax = plt.subplots(figsize=(6, 4))
     plt.rcParams.update({'font.size': 18})
 
     z = np.polyfit(x, pred, 1)
     p = np.poly1d(z)
-    ax.plot(x, p(x), color='b', linestyle='dashed')
-    ax.scatter(x, pred, color='b', label='Predicted fs')
+    ax.plot(x, p(x), color='b', linestyle='dashed', zorder=100)
+    ax.scatter(x, pred, color='b', label='Predicted fs', zorder=100)
 
     z = np.polyfit(x, real, 1)
     p = np.poly1d(z)
-    ax.plot(x, p(x), color='g', linestyle='dashed')
-    ax.scatter(x, real, color='g', label='Real fs')
-    ax.set_ylim(0 - max(pred + real) * 0.1, max(pred + real)*1.3)
-    # print(pred + real)
-    # print(area, max(pred + real))
+    ax.plot(x, p(x), color='g', linestyle='dashed', zorder=100)
+    ax.scatter(x, real, color='g', label='Real fs', zorder=100)
+    ax.set_ylim(0 - max(pred + real) * 0.1, max(pred + real)*1.2)
+    ax.yaxis.set_major_locator(plt.LinearLocator(numticks=numticks))
+    # '{0:.7g}'.format(float(speed) * 1.609344)
+    ax.set_yticks(np.arange(0, max(pred + real) * 1.2, (max(pred + real) * 1.2)/numticks))
+    # ax.set_yticks(np.arange(0, max(pred + real) * 1.2, round(((max(pred + real) * 1.2)/numticks), -2)))
+    # int(round(123, -2))
+
+    ax.yaxis.set_major_formatter(ticker.FormatStrFormatter('%2.f'))
+
     ax.tick_params(axis='both', which='major', labelsize=16)
     # ax.grid()
     # ax.set_xlabel("Car / PT users who switch to AV (%)")
     # ax.set_ylabel("Fleet Size")
 
     ax2 = ax.twinx()
-    ax2.plot(x, error, color="red", marker="o", label='Error')
-    ax2.set_ylim(0 - max(error) * 0.1, max(error)*1.3)
+    ax2.plot(x, error, color="red", marker="o", label='Error', zorder=100)
+    ax2.set_ylim(0 - max(error) * 0.1, max(error)*1.2)
+    ax2.yaxis.set_major_locator(plt.LinearLocator(numticks=numticks))
+    ax2.set_yticks(np.arange(0, max(error) * 1.2, (max(error) * 1.2)/numticks))
+    # ax.set_yticks(np.arange(0, max(pred + real) * 1.2, '{0:.2g}'.format((max(pred + real) * 1.2)/numticks)))
+    if max(error) > 1:
+        rounder = 0
+    elif max(error) > 0.4:
+        rounder = 2
+    elif max(error) < 0.15:
+        rounder = 2
+        # inter =
+    else:
+        rounder = 2
+    # elif max(error) > 1:
+    #     formater = '%0.0f'
+    # ax2.yaxis.set_major_formatter(ticker.FormatStrFormatter('%.2f'))
+    ax2.set_yticklabels(np.round(np.arange(0, max(error) * 1.2, (max(error) * 1.2)/numticks), rounder))
+    ax.grid()
+
     # ax2.set_ylabel("Error [ abs (1 - (pred / real) ) ]", fontsize=12)
     # ax2.set_ylabel("Error")
 
@@ -959,13 +1006,12 @@ def fs_error_plot(data, result_path, area):
     # Add legend
     # fig.legend(loc='best', ncol=1, prop={'size': 7}, frameon=True)
     # plt.title('Predicted fs comparison for: ' + str(area), fontsize=12, fontweight=0)
-    # plt.grid(True)
     # lims = plot_x_vs_y.get_ylim()  # Get min/max of primary y-axis
     # ax2.set_ylim(lims)  # Set min/max of secondary y-axis
     # ax2.grid(None)
-    plt.tight_layout()
     # align_axis(ax, ax2)
 
+    plt.tight_layout()
     # Check if out_path exists or create it
     if not os.path.exists(str(result_path) + '/areas'):
         os.makedirs(str(result_path) + '/areas')
@@ -978,8 +1024,8 @@ def ols_rf():
     df_rf = pd.read_csv('C:/Users/Ion/TFM/data/plots/regression/randomForest/rm_less/area_pred_df.csv', sep=',', index_col='study_area')
     comparison_df = pd.read_csv('C:/Users/Ion/TFM/data/plots/regression/randomForest/rm_less/comparison_df.csv', sep=",", index_col='max_attr')
     ix = list(comparison_df.index).index(comparison_df.index[comparison_df['avg_error'] == min(comparison_df['avg_error'])])
-    # df_rf = df_rf[ix*15:(ix*15)+15]
-    df_rf = df_rf[0:15]
+    df_rf = df_rf[ix*15:(ix*15)+15]
+    # df_rf = df_rf[0:15]
 
     df_fserror = pd.read_csv(str(plot_path) + '/fs_error.csv', sep=",", index_col='study_area')
 
@@ -987,12 +1033,12 @@ def ols_rf():
     ols_error = []
     ols_dict = {}
     for area in df_fserror.index:
-        # if area == 'plateau':
-        #     continue
+        if area == 'plateau':
+            continue
         area_error = []
         for column in df_fserror.columns:
-            if 'error' in column:
-            # if 'error_1.0' in column:
+            # if 'error' in column:
+            if 'error_1.0' in column:
                 area_error.append(df_fserror.loc[area, column])
         # print(area, sum(area_error)/len(area_error))
         area_mean = sum(area_error)/len(area_error)
@@ -1006,14 +1052,14 @@ def ols_rf():
     areas = []
     rf_dict = {}
     for area in df_rf.index:
+        if 'plateau' in area:
+            continue
         areas.append(area)
-        # if 'plateau' in area:
-        #     continue
         area_error = []
         pred_100fs = df_rf.loc[area, 'pred_fs']
         # real_100fs = df_rf.loc[area, 'real_fs']
-        for avshare in [5,10,20,40,60,80,100]:
-        # for avshare in [100]:
+        # for avshare in [5,10,20,40,60,80,100]:
+        for avshare in [100]:
             pred_fs = (pred_100fs / 100) * avshare
             # real_fs = (real_100fs / 100) * avshare
             real_fs = df_fserror.loc[area, 'real_' + str(avshare/100)]
@@ -1064,7 +1110,8 @@ def ols_rf():
                         'zurich_kreis': 'urban',
                         'zurich_large': 'urban'}
 
-    comp_df = pd.DataFrame(None, index=[cap_areas[x] for x in areas])
+    # comp_df = pd.DataFrame(None, index=[cap_areas[x] for x in areas])
+    comp_df = pd.DataFrame(None, index=areas)
     comp_df['ols'] = [x * 100 for x in ols_error]
     comp_df['rf'] = [x * 100 for x in rf_error]
 
@@ -1072,26 +1119,27 @@ def ols_rf():
     # Plot i
     # result2 = comp_df.drop(['Plateau']).sort_values(by='ols', ascending=True)
     result = comp_df.sort_values(by='ols', ascending=True)
-    ax = result.plot(y=['ols', 'rf'], kind="bar", figsize=(15, 8), label=['Ordinary Least Squares', 'Random Forest Regressor'])
+    ax = result.plot(y=['ols', 'rf'], kind="bar", figsize=(13, 6), label=['Ordinary Least Squares', 'Random Forest Regressor'])
 
     # result = result2
     plt.hlines(y=sum(result['ols'])/len(result['ols']), xmin=-5, xmax=15, colors='#0089FF', linestyles='dashdot', zorder=100)
     plt.hlines(y=sum(result['ols'])/len(result['ols']), xmin=-5, xmax=15, colors='k', linestyles='dashdot', zorder=0, label='Average prediction error')
     plt.hlines(y=sum(result['rf'])/len(result['rf']), xmin=-5, xmax=15, colors='#FF8900', linestyles='dashdot', zorder=100)
+    # plt.hlines(y=68.21, xmin=-5, xmax=15, colors='#FF8900', linestyles='dashdot', zorder=100)
 
     plt.rcParams.update({'font.size': 16})
     plt.legend(framealpha=None).set_zorder(102)
     plt.grid()
     ax.set_axisbelow(True)
-    ax.set_ylim(0, 67.2)
-    # ax.set_ylim(0, 100)
+    # ax.set_ylim(0, 67.2)
+    ax.set_ylim(0, 100)
     plt.ylabel('Prediction error [%]')
 
     plt.xticks(rotation=45, ha='right')
     ax2 = ax.twinx()
     # ax2.set_ylim(0,380)
-    ax2.set_ylim(0, 67.2)
-    # ax2.set_ylim(0, 100)
+    # ax2.set_ylim(0, 67.2)
+    ax2.set_ylim(0, 100)
 
     # plt.ylabel('Prediction error [%]')
     plt.tight_layout()
@@ -1116,66 +1164,115 @@ def ols_rf():
         ols_type_avg.append(sum(area_error_ols)/len(area_error_ols))
         rf_type_avg.append(sum(area_error_rf)/len(area_error_rf))
 
-    comp_df2 = pd.DataFrame(None, index=['Urban', 'Rural', 'Alpine'])
+    comp_df2 = pd.DataFrame(None, index=['Urban', 'Rural', 'Mountain'])
     comp_df2['ols'] = [x * 100 for x in ols_type_avg]
     comp_df2['rf'] = [x * 100 for x in rf_type_avg]
 
     # Plot ii
     # result2 = comp_df.drop(['Plateau']).sort_values(by='ols', ascending=True)
     result = comp_df2.sort_values(by='ols', ascending=True)
-    ax = result.plot(y=['ols', 'rf'], kind="bar", figsize=(15, 8), label=['Ordinary Least Squares', 'Random Forest Regressor'])
+    # ax = result.plot(y=['ols', 'rf'], kind="bar", figsize=(10, 6), label=['Ordinary Least Squares', 'Random Forest Regressor'])
+    ax = result.plot(y=['ols', 'rf'], kind="bar", figsize=(7, 5), label=['Ordinary Least Squares', 'Random Forest Regressor'])
 
     # result = result2
     # ols_error.remove(max(ols_error))
     # rf_error.remove(max(rf_error))
 
-    # plt.hlines(y=(sum(ols_error)/len(ols_error))*100, xmin=-5, xmax=15, colors='#0089FF', linestyles='dashdot', zorder=100)
-    # plt.hlines(y=(sum(ols_error)/len(ols_error))*100, xmin=-5, xmax=15, colors='k', linestyles='dashdot', zorder=0, label='Average prediction error')
-    # plt.hlines(y=(sum(rf_error)/len(rf_error))*100, xmin=-5, xmax=15, colors='#FF8900', linestyles='dashdot', zorder=100)
-    plt.hlines(y=sum(result['ols'])/len(result['ols']), xmin=-5, xmax=15, colors='#0089FF', linestyles='dashdot', zorder=100)
-    plt.hlines(y=sum(result['ols'])/len(result['ols']), xmin=-5, xmax=15, colors='k', linestyles='dashdot', zorder=0, label='Average prediction error')
-    plt.hlines(y=sum(result['rf'])/len(result['rf']), xmin=-5, xmax=15, colors='#FF8900', linestyles='dashdot', zorder=100)
+    plt.hlines(y=(sum(ols_error)/len(ols_error))*100, xmin=-5, xmax=15, colors='#0089FF', linestyles='dashdot', zorder=100)
+    plt.hlines(y=(sum(ols_error)/len(ols_error))*100, xmin=-5, xmax=15, colors='k', linestyles='dashdot', zorder=0, label='Average prediction error')
+    plt.hlines(y=(sum(rf_error)/len(rf_error))*100, xmin=-5, xmax=15, colors='#FF8900', linestyles='dashdot', zorder=100)
+    # plt.hlines(y=sum(result['ols'])/len(result['ols']), xmin=-5, xmax=15, colors='#0089FF', linestyles='dashdot', zorder=100)
+    # plt.hlines(y=sum(result['ols'])/len(result['ols']), xmin=-5, xmax=15, colors='k', linestyles='dashdot', zorder=0, label='Average prediction error')
+    # plt.hlines(y=sum(result['rf'])/len(result['rf']), xmin=-5, xmax=15, colors='#FF8900', linestyles='dashdot', zorder=100)
 
 
-    plt.rcParams.update({'font.size': 16})
-    plt.legend(framealpha=None).set_zorder(102)
+    plt.rcParams.update({'font.size': 19})
+    # plt.legend(framealpha=None).set_zorder(102)
+    plt.legend(loc='center', framealpha=None, fontsize=17, bbox_to_anchor=(0.5, 1.2)).set_zorder(102)
     plt.grid()
     ax.set_axisbelow(True)
-    ax.set_ylim(0, 67.2)
+    # ax.set_ylim(0, 67.2)
+    ax2.set_ylim(0, 57.2)
     # ax.set_ylim(0, 100)
     plt.ylabel('Prediction error [%]')
 
     plt.xticks(rotation=0, ha='center')
-    ax2 = ax.twinx()
+    # ax2 = ax.twinx()
     # ax2.set_ylim(0,380)
-    ax2.set_ylim(0, 67.2)
+    # ax2.set_ylim(0, 67.2)
+    # ax2.set_ylim(0, 57.2)
     # ax2.set_ylim(0, 100)
 
     # plt.ylabel('Prediction error [%]')
     plt.tight_layout()
+    plt.show()
 
 
 def CarPtusers_fs():
-    g1 = (full_df[full_df['area_type'] == 'rural']['CarPt_users'], full_df[full_df['area_type'] == 'rural'][('norm', '1.0')])
-    g2 = (full_df[full_df['area_type'] == 'mountain']['CarPt_users'], full_df[full_df['area_type'] == 'mountain'][('norm', '1.0')])
-    g3 = (full_df[full_df['area_type'] == 'urban']['CarPt_users'], full_df[full_df['area_type'] == 'urban'][('norm', '1.0')])
+    pred = 'rf'
+    # pred = 'ols'
+    fs = ('norm', '1.0')
+    # fs = ('fs', '1.0')
+    # attr = 'trips'
+    # attr = 'CarPt_users'
+    attr = 'real_1.0'
+    # attr = 'node_load_centrality'
+    try:
+        full_df = full_df.drop(['winterthur', 'interlaken', 'geneve', 'baden', 'basel', 'plateau'])
+    except:
+        pass
+    # g1 = (full_df[full_df['area_type'] == 'rural'][attr], full_df[full_df['area_type'] == 'rural'][fs])
+    # g2 = (full_df[full_df['area_type'] == 'mountain'][attr], full_df[full_df['area_type'] == 'mountain'][fs])
+    # g3 = (full_df[full_df['area_type'] == 'urban'][attr], full_df[full_df['area_type'] == 'urban'][fs])
+    area_type = []
+    for ix in result.index:
+        area_type.append(area_type_dict[ix])
+    result['area_type'] = area_type
+    # g1 = (full_df[full_df['area_type'] == 'rural'][attr], result[result['area_type'] == 'rural'][pred])
+    # g2 = (full_df[full_df['area_type'] == 'mountain'][attr], result[result['area_type'] == 'mountain'][pred])
+    # g3 = (full_df[full_df['area_type'] == 'urban'][attr], result[result['area_type'] == 'urban'][pred])
+    g1 = (full_df[attr], result['ols'])
+    g2 = (full_df[attr], result['rf'])
+    # g2 = (full_df[full_df['area_type'] == 'mountain'][attr], result[result['area_type'] == 'mountain'][pred])
+    # g1 = (full_df[full_df['area_type'] == 'rural']['node_load_centrality'], full_df[full_df['area_type'] == 'rural'][fs])
+    # g2 = (full_df[full_df['area_type'] == 'mountain']['node_load_centrality'], full_df[full_df['area_type'] == 'mountain'][fs])
+    # g3 = (full_df[full_df['area_type'] == 'urban']['node_load_centrality'], full_df[full_df['area_type'] == 'urban'][fs])
 
-    data = (g1, g2, g3)
-    colors = ("red", "green", "blue")
-    groups = ("rural", "mountain", "urban")
+
+    # data = (g1, g2, g3)
+    data = (g1, g2)
+    colors = ("blue", "#FF7400")
+    groups = ("Ordinary Least Squares", "Random Forest Regressor")
+    # colors = ("red", "green", "blue")
+    # groups = ("rural", "mountain", "urban")
 
     # Create plot
-    fig = plt.figure()
+    # fig = plt.figure(figsize=(6,4))
+    fig = plt.figure(figsize=(7,5))
+    plt.rcParams.update({'font.size': 19})
     ax = fig.add_subplot(1, 1, 1)
+    ax.set_xscale('log')
+    ax.set_xlim(50, 20000)
+    ax.set_ylim(0, 100)
 
     for data, color, group in zip(data, colors, groups):
         x, y = data
-        ax.scatter(x, y, alpha=0.8, c=color, edgecolors='none', s=30, label=group)
-
+        ax.scatter(x, y, alpha=0.8, c=color, edgecolors='none', s=50, label=group, zorder=100)
+    # plt.ticklabel_format(style='sci', axis='x', scilimits=(0, 0))
+    # plt.ticklabel_format(style='sci', axis='y', scilimits=(0, 0))
     # plt.title('Matplot scatter plot')
     plt.xlabel('CarPt_users')
-    plt.ylabel('Normalized Fleet Size (100%)')
-    plt.legend(loc=2)
+    plt.xlabel('Fleet size')
+    # plt.xlabel('Trips')
+    # plt.xlabel(attr)
+    # plt.xlabel('Load centrality')
+    # plt.ylabel('Normalized fleet size')
+    plt.ylabel('Prediction error [%]')
+    # plt.ylabel('Full fleet size')
+    # plt.legend(loc='left center', fontsize=14, bbox_to_anchor=(1.05, 0.6))
+    plt.legend(loc='center', fontsize=17, bbox_to_anchor=(0.5, 1.2))
+    plt.grid()
+    plt.tight_layout()
     plt.show()
 
 
@@ -1185,12 +1282,14 @@ def static_demand():
     ax = plt.axes()
     x = np.linspace(1000, 2000, 10)
     y = [11.6, 8.7, 7, 5.75, 4.6, 3.8, 3, 2.3, 1.9, 1.6]
-    ax.plot(x, y, marker='o');
+    x = np.linspace(1000, 2000, 10)
+    y = [11.6, 8.7, 7, 5.75, 4.6, 3.8, 3, 2.3, 1.9, 1.6]
+    ax.plot(0, 0, marker='o')
     # ax.hlines(y=5, xmin=0, xmax=1400, colors='r', linestyles='dashdot', zorder=100, label='Threshold')
     # ax.vlines(x=1400, ymin=0, ymax=5, colors='r', linestyles='dashdot', zorder=100, label='Threshold')
     ax.set_ylim(0, 12)
     ax.set_xlim(700, 2050)
-    plt.yticks([3,5,7,9,11], ['3','5','7','9','11'])
+    plt.yticks([1,3,5,7,9,11], ['1','3','5','7','9','11'])
     # ax.get_xticklabels()[4].set_color("red")
     plt.xlabel('Fleet size')
     plt.ylabel('Average waiting time [min]')

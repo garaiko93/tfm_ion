@@ -178,15 +178,16 @@ for i in range(len(variables)):
         comparison_df = comparison_df.append(s)
 
 # Plot i
-# result = comparison_df.transpose().sort_values(by='norm', ascending=False) * 100
-result = comparison_df.transpose().sort_values(by='fs', ascending=False) * 100
+result = comparison_df.transpose().sort_values(by='norm', ascending=False) * 100
+# result = comparison_df.transpose().sort_values(by='fs', ascending=False) * 100
 # fig, axs = plt.subplots(nrows=2, ncols=1, figsize=(18,8))
-result.plot(y=['norm', 'fs'], kind="bar", figsize=(18, 8), label=['Normalized fleet size', 'Full fleet size'])
+result.plot(y=['norm', 'fs'], kind="bar", figsize=(14, 6), label=['Normalized fleet size', 'Full fleet size'], zorder=100)
 # plt.figure(figsize=(38, 24))
-plt.rcParams.update({'font.size': 16})
+plt.rcParams.update({'font.size': 13})
 # plt.xlabel('Attribute')
 plt.ylabel('Attributes Importance [%]')
 plt.xticks(rotation=45, ha='right')
+plt.grid()
 plt.tight_layout()
 
 
@@ -194,7 +195,7 @@ plt.tight_layout()
 # PLOT ii: removing most/less important variable
 # ----------------------------------------------------------------------------------------------
 most_imp = []
-out_path = 'C:/Users/Ion/TFM/data/plots/regression/randomForest'
+out_path = 'C:/Users/Ion/TFM/data/plots/regression/randomForest/rm_less'
 pred_var = ('norm', '1.0')
 # df_attr = pd.read_csv(str(study_area_dir) + '/attribute_table_AVG_T.csv', sep=",", index_col='study_area')
 df_attr = pd.read_csv('C:/Users/Ion/TFM/data/study_areas/attribute_table_AVG_T.csv', sep=",", index_col='study_area')
@@ -376,11 +377,13 @@ def plot_ii():
 # ----------------------------------------------------------------------------------------------
 # Plot ii'
 def plot_iip():
-    fig, ax = plt.subplots(figsize=(18, 8))
+    # fig, ax = plt.subplots(figsize=(18, 8))
+    fig, ax = plt.subplots(figsize=(14, 8))
 
     label_check = [0, 0, 0, 0]
-    label_check = [0, 0, 0, 0]
     for area in pred_data_df.index:
+        if area == 'plateau':
+            continue
         area_df = pred_data_df.loc[area]
         area_type = area_df.loc['area_type']
         ix = area_df.loc['best_pred_ix']
@@ -446,14 +449,27 @@ def plot_iip():
     #             color=color)
         # ax.vlines(pred_data_df.loc[area, 'best_pred_ix'], 0, pred_data_df.loc[area, 'best_pred'], colors=color, linewidth=0.8, linestyles='dashdot')
 
+    ax.plot(comparison_df.index, comparison_df['avg_error'], color='r', label='Average Error')
+    ax.plot(comparison_df.index[comparison_df['avg_error'] == min(comparison_df['avg_error'])],
+                min(comparison_df['avg_error']), 'o', color='r')
+    ax.vlines(x=comparison_df.index[comparison_df['avg_error'] == min(comparison_df['avg_error'])],
+              ymin=0, ymax=min(comparison_df['avg_error']), colors='r', linewidth=1.2, linestyles='dashdot',
+               zorder=100)
     plt.xticks(rotation=90)
-    ax.set_ylabel("Error [1=100%]", fontsize=12)
+    ax.set_ylabel("Error [%]", fontsize=12)
     ax.tick_params(labelright=True)
     plt.xticks(rotation=45, ha='right')
-    # Add legend
-    fig.legend(loc='upper left', ncol=1, prop={'size': 12}, frameon=True, bbox_to_anchor=(0.1, 0.8))
+    ax.set_ylim(0, 1)
 
-    plt.title('Random Forest prediction by removing most important attribute', fontsize=12, fontweight=0)
+    # Add legend
+    # box = ax.get_position()
+    # ax.set_position([box.x0, box.y0 + box.height * 0.1, box.width, box.height * 0.9])
+    fig.legend(loc='upper left', ncol=1, prop={'size': 12}, frameon=True, bbox_to_anchor=(0.1, 0.95))
+    # fig.legend(loc='upper left', ncol=1, prop={'size': 14}, frameon=True, bbox_to_anchor=(0.1, 0.95))
+    # ax.legend(loc='upper center', ncol=5, prop={'size': 14}, frameon=True, bbox_to_anchor=(0.5, 1.2))
+    plt.yticks([0, 0.2, 0.4, 0.6, 0.8, 1.0], ['0', '20', '40', '60', '80', '100'])
+
+    # plt.title('Random Forest prediction by removing most important attribute', fontsize=12, fontweight=0)
     plt.tight_layout()
     return ax
 
@@ -461,18 +477,21 @@ def plot_iip():
 # Plot i+ii
 
 # fig, axs = plt.subplots(nrows=2, ncols=1, figsize=(18,8))
-fig, axs = plt.subplots(nrows=2, ncols=1, figsize=(18,8))
+fig, axs = plt.subplots(nrows=2, ncols=1, figsize=(12,8))
 
-plt.rcParams.update({'font.size': 14})
+plt.rcParams.update({'font.size': 10})
 i, j = [1, 0]
 
 # Top plot
-axs[i].bar(comparison_df.index, comparison_df['importance'], label='Attribute importance at the moment of removing')
-axs[i].set_ylabel("[%]", fontsize=12)
+# axs[i].bar(comparison_df.index, comparison_df['importance'], label='Attribute importance at the moment of removing')
+axs[i].set_ylabel("Average error [%]")
+# fig[i].yticks([0,0.2,0.4,0.6,0.8,1.0], ['0','20','40','60','80','100'])
 
-axs[i].plot(comparison_df.index, comparison_df['avg_error'], color='r', label='Average Error')
+axs[i].plot(comparison_df.index, comparison_df['avg_error']*100, color='r', label='Average Error')
 axs[i].plot(comparison_df.index[comparison_df['avg_error'] == min(comparison_df['avg_error'])],
-            min(comparison_df['avg_error']), 'o', color='r')
+            min(comparison_df['avg_error'])*100, 'o', color='r', label='Best prediction')
+axs[i].grid()
+axs[i].tick_params(labeltop=False, labelright=True)
 print(min(comparison_df['avg_error']))
 # axs[j].plot(pred_data_df.loc[area, 'best_pred_ix'], pred_data_df.loc[area, 'best_pred'], 'o', color=color)
 
@@ -480,7 +499,7 @@ print(min(comparison_df['avg_error']))
 plt.xticks(rotation=45, ha='right')
 
 # Add legend
-axs[i].legend(loc='best', ncol=1, prop={'size': 12}, frameon=True)
+axs[i].legend(loc='lower left', ncol=1, prop={'size': 12}, frameon=True)
 
 # plt.tight_layout()
 # plt.title('Random Forest prediction by removing most important attribute', fontsize=12, fontweight=0)
@@ -500,41 +519,44 @@ for area in pred_data_df.index:
 
     # Plot dot with best prediction of area
     if label_check[3] == 0:
-        axs[j].plot(pred_data_df.loc[area, 'best_pred_ix'], pred_data_df.loc[area, 'best_pred'], 'o', color=color, zorder=10)
-        axs[j].plot(pred_data_df.loc[area, 'best_pred_ix'], pred_data_df.loc[area, 'best_pred'], 'o', color='k', label='Best prediction', zorder=0)
+        axs[j].plot(pred_data_df.loc[area, 'best_pred_ix'], pred_data_df.loc[area, 'best_pred']*100, 'o', color=color, zorder=10)
+        axs[j].plot(pred_data_df.loc[area, 'best_pred_ix'], pred_data_df.loc[area, 'best_pred']*100, 'o', color='k', label='Best prediction', zorder=0)
         label_check[3] += 1
     else:
-        axs[j].plot(pred_data_df.loc[area, 'best_pred_ix'], pred_data_df.loc[area, 'best_pred'], 'o', color=color)
+        axs[j].plot(pred_data_df.loc[area, 'best_pred_ix'], pred_data_df.loc[area, 'best_pred']*100, 'o', color=color)
 
     # Plot transition of predicted errors for each area
     if color == 'm':
         if label_check[0] == 0:
-            axs[j].plot(comparison_df.index, area_pred_df[area_pred_df['study_area'] == area]['error_nfs'], color=color, label='Rural Area')
+            axs[j].plot(comparison_df.index, area_pred_df[area_pred_df['study_area'] == area]['error_nfs']*100, color=color, label='Rural Area')
             label_check[0] += 1
         else:
-            axs[j].plot(comparison_df.index, area_pred_df[area_pred_df['study_area'] == area]['error_nfs'], color=color)
+            axs[j].plot(comparison_df.index, area_pred_df[area_pred_df['study_area'] == area]['error_nfs']*100, color=color)
     elif color == 'b':
         if label_check[1] == 0:
-            axs[j].plot(comparison_df.index, area_pred_df[area_pred_df['study_area'] == area]['error_nfs'], color=color, label='Urban Area')
+            axs[j].plot(comparison_df.index, area_pred_df[area_pred_df['study_area'] == area]['error_nfs']*100, color=color, label='Urban Area')
             label_check[1] += 1
         else:
-            axs[j].plot(comparison_df.index, area_pred_df[area_pred_df['study_area'] == area]['error_nfs'], color=color)
+            axs[j].plot(comparison_df.index, area_pred_df[area_pred_df['study_area'] == area]['error_nfs']*100, color=color)
     elif color == 'g':
         if label_check[2] == 0:
-            axs[j].plot(comparison_df.index, area_pred_df[area_pred_df['study_area'] == area]['error_nfs'], color=color, label='Mountain Area')
+            axs[j].plot(comparison_df.index, area_pred_df[area_pred_df['study_area'] == area]['error_nfs']*100, color=color, label='Mountain Area')
             label_check[2] += 1
         else:
-            axs[j].plot(comparison_df.index, area_pred_df[area_pred_df['study_area'] == area]['error_nfs'], color=color)
+            axs[j].plot(comparison_df.index, area_pred_df[area_pred_df['study_area'] == area]['error_nfs']*100, color=color)
 
 axs[j].tick_params(axis='x',          # changes apply to the x-axis
                    which='both',      # both major and minor ticks are affected
                    bottom=True,      # ticks along the bottom edge are off
                    top=False,         # ticks along the top edge are off
                    labelbottom=False) # labels along the bottom edge are off
-axs[j].set_ylabel("Error [1=100%]", fontsize=12)
-axs[j].set_ylim(0, 1)
+axs[j].set_ylabel("Error by area [%]")
+axs[j].set_ylim(0, 100)
+axs[j].grid()
+axs[j].tick_params(labeltop=False, labelright=True)
+# axs[j].yticks([0,0.2,0.4,0.6,0.8,1.0], ['0','20','40','60','80','100'])
 # Add legend
-axs[j].legend(loc='upper right', ncol=1, prop={'size': 12}, frameon=True)
+axs[j].legend(loc='upper left', ncol=2, prop={'size': 12}, frameon=True)
 
 plt.tight_layout()
 # plt.title('Random Forest prediction by removing most important attribute', fontsize=12, fontweight=0)
