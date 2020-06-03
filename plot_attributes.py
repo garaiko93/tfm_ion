@@ -164,7 +164,7 @@ def data_setup(study_areas, attr, plot_title, list_areas):
     # plt.savefig(r'C:/Users/Ion/TFM/' + str(attr_name) + '.png')
     print('Plot saved: ' + str(list_areas) + ' ' + str(attr))
 
-# '''
+'''
 attr_dict = {
     'avg_degree_connect': 'Average degree connectivity',
     'avg_neighbor_degree': 'Average neighbour degree',
@@ -571,8 +571,8 @@ def plot_fc(area_path, plot_path, opt_fs_path, area, fit_func='exp'):
     # Add titles
     # plt.title('AV simulation results for: ' + str(area) + ' (10pct swiss census)', fontsize=16, fontweight=0,
     #           color='orange')
-    # plt.xlabel("AVs Fleet Size")
-    # plt.ylabel("Waiting Time [min]")
+    plt.xlabel("Fleet Size")
+    plt.ylabel("Waiting Time [min]")
     plt.tight_layout()
 
     # plt.savefig(str(area_path) + '/simulations/' + str(df_name) + '.png')
@@ -593,8 +593,8 @@ def plot_sim_results(study_area_dir, plot_path, fit_func, area=None):
             continue
         area_path = str(study_area_dir) + '/' + str(area)
         plot_fc(area_path,
-                plot_path,
-                # 'C:/Users/Ion/TFM/data/plots/final',
+                # plot_path,
+                'C:/Users/Ion/TFM/data/plots/final/no_legend',
                 str(plot_path) + '/' + 'sim_opt_fs.csv',
                 area,
                 fit_func=fit_func)  # fit_func = ['exp', 'quadratic', 'two_points', 'power' (a^(bx+c)), 'best' (better[exp,quadratic,power]) ]
@@ -965,46 +965,55 @@ def fs_error_plot(data, result_path, area):
     ax.plot(x, p(x), color='g', linestyle='dashed', zorder=100)
     ax.scatter(x, real, color='g', label='Real fs', zorder=100)
     ax.set_ylim(0 - max(pred + real) * 0.1, max(pred + real)*1.2)
-    ax.yaxis.set_major_locator(plt.LinearLocator(numticks=numticks))
+    # ax.yaxis.set_major_locator(plt.LinearLocator(numticks=numticks)) #THIS
     # '{0:.7g}'.format(float(speed) * 1.609344)
-    ax.set_yticks(np.arange(0, max(pred + real) * 1.2, (max(pred + real) * 1.2)/numticks))
+    # ax.set_yticks(np.arange(0, max(pred + real) * 1.2, (max(pred + real) * 1.2)/numticks)) #THIS
     # ax.set_yticks(np.arange(0, max(pred + real) * 1.2, round(((max(pred + real) * 1.2)/numticks), -2)))
     # int(round(123, -2))
 
-    ax.yaxis.set_major_formatter(ticker.FormatStrFormatter('%2.f'))
+    # ax.yaxis.set_major_formatter(ticker.FormatStrFormatter('%2.f'))
 
     ax.tick_params(axis='both', which='major', labelsize=16)
     # ax.grid()
-    # ax.set_xlabel("Car / PT users who switch to AV (%)")
-    # ax.set_ylabel("Fleet Size")
+    ax.set_xlabel("AV share [%]", fontsize=18)
+    ax.set_ylabel("Fleet size", fontsize=18)
 
     ax2 = ax.twinx()
     ax2.plot(x, error, color="red", marker="o", label='Error', zorder=100)
     ax2.set_ylim(0 - max(error) * 0.1, max(error)*1.2)
-    ax2.yaxis.set_major_locator(plt.LinearLocator(numticks=numticks))
-    ax2.set_yticks(np.arange(0, max(error) * 1.2, (max(error) * 1.2)/numticks))
+    # ax2.yaxis.set_major_locator(plt.LinearLocator(numticks=numticks)) #THIS
+    # ax2.set_yticks(np.arange(0, max(error) * 1.2, (max(error) * 1.2)/numticks)) #THIS
+
     # ax.set_yticks(np.arange(0, max(pred + real) * 1.2, '{0:.2g}'.format((max(pred + real) * 1.2)/numticks)))
-    if max(error) > 1:
-        rounder = 0
-    elif max(error) > 0.4:
-        rounder = 2
-    elif max(error) < 0.15:
-        rounder = 2
-        # inter =
-    else:
-        rounder = 2
+    # if max(error) > 1:
+    #     rounder = 0
+    # elif max(error) > 0.4:
+    #     rounder = 2
+    # elif max(error) < 0.15:
+    #     rounder = 2
+    #     # inter =
+    # else:
+    #     rounder = 2
     # elif max(error) > 1:
     #     formater = '%0.0f'
-    # ax2.yaxis.set_major_formatter(ticker.FormatStrFormatter('%.2f'))
-    ax2.set_yticklabels(np.round(np.arange(0, max(error) * 1.2, (max(error) * 1.2)/numticks), rounder))
-    ax.grid()
+    # ax2.yaxis.set_major_formatter(ticker.FormatStrFormatter('%.2f')) #THIS
+    # ax2.set_yticklabels(np.round(np.arange(0, max(error) * 1.2, (max(error) * 1.2)/numticks), rounder))
+    # ax.grid()
 
     # ax2.set_ylabel("Error [ abs (1 - (pred / real) ) ]", fontsize=12)
-    # ax2.set_ylabel("Error")
+    ax2.set_ylabel("Error")
 
     # ax2.set_yticks(np.linspace(ax2.get_yticks()[0], ax2.get_yticks()[-1], len(ax.get_yticks())))
     # Add legend
-    # fig.legend(loc='best', ncol=1, prop={'size': 7}, frameon=True)
+    box = ax.get_position()
+    # ax.set_position([box.x0, box.y0 + box.height * 0.01, box.width, box.height * 0.9])
+    # box = ax2.get_position()
+    # ax2.set_position([box.x0, box.y0 + box.height * 0.1, box.width, box.height * 0.9])
+    # ax2.set_position([box.x0, box.y0 + box.height * 0.1, box.width, box.height * 0.9])
+    # fig.legend(loc='upper center', ncol=3, prop={'size': 5}, frameon=True, bbox_to_anchor=(0.5, -0.05))
+    # fig.legend(loc='upper center', ncol=1, prop={'size': 15}, frameon=True, bbox_to_anchor=(0.5, 1.0))
+    # fig.legend(loc='lower left', ncol=1, prop={'size': 15}, frameon=True, bbox_to_anchor=(0.42, 0.21))
+    # fig.legend(loc='best', borderaxespad=0, ncol=1, prop={'size': 13}, frameon=True)
     # plt.title('Predicted fs comparison for: ' + str(area), fontsize=12, fontweight=0)
     # lims = plot_x_vs_y.get_ylim()  # Get min/max of primary y-axis
     # ax2.set_ylim(lims)  # Set min/max of secondary y-axis
@@ -1300,7 +1309,7 @@ def static_demand():
 # -----------------------------------------------------------------------------
 
 # This creates plot for each area (wt vs fs) and opt fs csv (fs, and fs_N)
-fit_func = 'two_points'     # ['exp', 'power', 'best', 'two_points']
+fit_func = 'best'     # ['exp', 'power', 'best', 'two_points']
 
 # plot_sim_results(study_area_dir='C:/Users/Ion/TFM/data/study_areas',
 #                  plot_path='C:/Users/Ion/TFM/data/plots/sim_plots/wt_fs/' + str(fit_func),

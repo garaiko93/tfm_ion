@@ -354,7 +354,7 @@ predict_on = [
 
 data_setup(study_area_dir='C:/Users/Ion/TFM/data/study_areas',
            sim_path='C:/Users/Ion/TFM/data/plots/sim_plots/wt_fs/two_points',
-           result_path='C:/Users/Ion/TFM/data/plots/regression/ols/try12',
+           result_path='C:/Users/Ion/TFM/data/plots/regression/ols/try14',
            regression_func=OLS_regression,
            predict_on=predict_on)
 
